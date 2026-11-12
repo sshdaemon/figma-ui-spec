@@ -31,7 +31,13 @@ const BUILT_IN: readonly Rule[] = [
   { reason: 'label', test: isLabelFrame },
 ];
 
-const FRAME_TYPES: Readonly<Record<string, ItemKind>> = { FRAME: 'frame', INSTANCE: 'frame', GROUP: 'frame', COMPONENT: 'component', COMPONENT_SET: 'component' };
+const FRAME_TYPES: Readonly<Record<string, ItemKind>> = {
+  FRAME: 'frame',
+  INSTANCE: 'frame',
+  GROUP: 'frame',
+  COMPONENT: 'component',
+  COMPONENT_SET: 'component',
+};
 
 export interface Outline {
   readonly items: FrameRef[];

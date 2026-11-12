@@ -1,7 +1,13 @@
 import type { FigmaNode, FigmaNodeEntry } from '../src/design/figma-json.ts';
 
 /** Made-up Figma REST nodes for tests; no real design data. */
-export function node(type: string, id: string, name: string, extra: Partial<FigmaNode> = {}, box: [number, number, number, number] = [0, 0, 100, 100]): FigmaNode {
+export function node(
+  type: string,
+  id: string,
+  name: string,
+  extra: Partial<FigmaNode> = {},
+  box: [number, number, number, number] = [0, 0, 100, 100],
+): FigmaNode {
   const [x, y, width, height] = box;
   return { id, name, type, absoluteBoundingBox: { x, y, width, height }, ...extra };
 }

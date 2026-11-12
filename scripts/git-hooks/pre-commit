@@ -6,3 +6,9 @@ if [ -n "$bad" ]; then
   echo "$bad" >&2
   exit 1
 fi
+
+# Lint and format checks, when the tools are installed (they are not in a bare clone).
+if [ -x node_modules/.bin/oxlint ] && [ -x node_modules/.bin/oxfmt ]; then
+  node_modules/.bin/oxlint --deny-warnings || exit 1
+  node_modules/.bin/oxfmt --check || { echo "run npm run format" >&2; exit 1; }
+fi

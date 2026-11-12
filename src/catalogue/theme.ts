@@ -82,14 +82,28 @@ function toDeclaration(statement: string, origin: TokenOrigin): Declaration | un
   if (colon < 0) return undefined;
   const name = statement.slice(0, colon).trim();
   if (!name.startsWith('--')) return undefined;
-  return { name: name.slice(2).replace(/\\/g, ''), value: statement.slice(colon + 1).trim().replace(/\s+/g, ' '), origin };
+  return {
+    name: name.slice(2).replace(/\\/g, ''),
+    value: statement
+      .slice(colon + 1)
+      .trim()
+      .replace(/\s+/g, ' '),
+    origin,
+  };
 }
 
 /** Sub-namespaces Tailwind v4 keeps when their parent namespace is reset (its `lib.js` ignore map). */
 const RESET_EXEMPT: Readonly<Record<string, readonly string[]>> = {
   'font-': ['font-weight-', 'font-size-'],
   'inset-': ['inset-shadow-', 'inset-ring-'],
-  'text-': ['text-color-', 'text-decoration-color-', 'text-decoration-thickness-', 'text-indent-', 'text-shadow-', 'text-underline-offset-'],
+  'text-': [
+    'text-color-',
+    'text-decoration-color-',
+    'text-decoration-thickness-',
+    'text-indent-',
+    'text-shadow-',
+    'text-underline-offset-',
+  ],
   'grid-column-': ['grid-column-start-', 'grid-column-end-'],
   'grid-row-': ['grid-row-start-', 'grid-row-end-'],
 };
