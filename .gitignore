@@ -1,0 +1,5 @@
+node_modules/
+# Machine- and project-specific: never committed (checked by test/hygiene.test.ts and the pre-commit hook)
+.env
+.repos/
+.cache/
