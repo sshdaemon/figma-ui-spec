@@ -18,6 +18,12 @@ test('readCva reads array bases, numeric keys, boolean keys and defaults', () =>
 });
 
 test('readCva says where it cannot read', () => {
-  assert.throws(() => readCva(file, 'missingVariants'), (err) => err instanceof CvaReadError && /no `const missingVariants = cva/.test(err.message));
-  assert.throws(() => readCva(file, 'brokenVariants'), (err) => err instanceof CvaReadError && /heading\.tsx:\d+: class value is not a literal/.test(err.message));
+  assert.throws(
+    () => readCva(file, 'missingVariants'),
+    (err) => err instanceof CvaReadError && /no `const missingVariants = cva/.test(err.message),
+  );
+  assert.throws(
+    () => readCva(file, 'brokenVariants'),
+    (err) => err instanceof CvaReadError && /heading\.tsx:\d+: class value is not a literal/.test(err.message),
+  );
 });

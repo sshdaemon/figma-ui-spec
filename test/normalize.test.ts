@@ -41,10 +41,13 @@ test('normalizeFrame keeps layout, paints, radius, shadows and positions relativ
   assert.equal(n.radius, 12);
   assert.deepEqual(n.shadows, [{ kind: 'drop', x: 0, y: 4, blur: 6, spread: -1, hex: '#0000001a' }]);
   assert.equal(n.opacity, 0.5);
-  assert.deepEqual(n.children?.map((c) => [c.id, c.box, c.radius]), [
-    ['1:2', { x: 10, y: 20, w: 50, h: 20 }, [4, 4, 0, 0]],
-    ['1:3', { x: 0, y: 0, w: 10, h: 10 }, 6],
-  ]);
+  assert.deepEqual(
+    n.children?.map((c) => [c.id, c.box, c.radius]),
+    [
+      ['1:2', { x: 10, y: 20, w: 50, h: 20 }, [4, 4, 0, 0]],
+      ['1:3', { x: 0, y: 0, w: 10, h: 10 }, 6],
+    ],
+  );
 });
 
 test('normalizeFrame resolves style names, variable ids, text and component instances', () => {
@@ -80,16 +83,33 @@ test('normalizeFrame resolves style names, variable ids, text and component inst
         s2: { key: 'k2', name: 'gray/200', styleType: 'FILL' },
         s3: { key: 'k3', name: 'Display/headline/lg', styleType: 'TEXT' },
       },
-      components: { c1: { key: 'ck1', name: 'State=Default, Size=md', componentSetId: 'set1', remote: true }, c2: { key: 'ck2', name: 'Divider' } },
+      components: {
+        c1: { key: 'ck1', name: 'State=Default, Size=md', componentSetId: 'set1', remote: true },
+        c2: { key: 'ck2', name: 'Divider' },
+      },
       componentSets: { set1: { key: 'setkey', name: 'Checkbox', remote: true } },
     }),
   );
   assert.deepEqual(n.styles, { fill: 'White', stroke: 'gray/200' });
   assert.deepEqual(n.variables, { itemSpacing: ['VariableID:a/1'], fills: ['VariableID:b/2'], rectangleCornerRadii: ['VariableID:c/3'] });
   const [text, checkbox, loose] = n.children ?? [];
-  assert.deepEqual(text?.text, { characters: 'Select data', family: 'Roboto', weight: 500, sizePx: 18, lineHeightPx: 27, letterSpacingPx: 0.15, mixed: true });
+  assert.deepEqual(text?.text, {
+    characters: 'Select data',
+    family: 'Roboto',
+    weight: 500,
+    sizePx: 18,
+    lineHeightPx: 27,
+    letterSpacingPx: 0.15,
+    mixed: true,
+  });
   assert.deepEqual(text?.styles, { text: 'Display/headline/lg' });
-  assert.deepEqual(checkbox?.component, { name: 'Checkbox', key: 'setkey', remote: true, variant: { State: 'Default', Size: 'md' }, properties: { 'Show label': true } });
+  assert.deepEqual(checkbox?.component, {
+    name: 'Checkbox',
+    key: 'setkey',
+    remote: true,
+    variant: { State: 'Default', Size: 'md' },
+    properties: { 'Show label': true },
+  });
   assert.deepEqual(loose?.component, { name: 'Divider', key: 'ck2', remote: false, variant: {}, properties: {} });
 });
 

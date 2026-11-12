@@ -10,15 +10,8 @@
     "rewriteRelativeImportExtensions": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "erasableSyntaxOnly": true
   },
-  "include": [
-    "src",
-    "test",
-    "bin",
-    "scripts"
-  ]
+  "include": ["src", "test", "bin", "scripts"]
 }

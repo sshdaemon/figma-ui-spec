@@ -8,7 +8,10 @@ interface FrameCounts {
 }
 
 export function renderDesign(s: DesignSnapshot, stats: ReadStats): string {
-  const lines: string[] = [`${s.file.name}  version ${s.file.version}, saved ${s.file.lastModified}`, `Root: ${s.root.name} (${s.root.type.toLowerCase()} ${s.root.id})`];
+  const lines: string[] = [
+    `${s.file.name}  version ${s.file.version}, saved ${s.file.lastModified}`,
+    `Root: ${s.root.name} (${s.root.type.toLowerCase()} ${s.root.id})`,
+  ];
 
   for (const [kind, title] of [
     ['frame', 'Design frames'],
@@ -40,17 +43,22 @@ export function renderDesign(s: DesignSnapshot, stats: ReadStats): string {
     });
   }
   lines.push('', 'Library styles used');
-  for (const [slot, names] of styles) lines.push(`  ${slot.padEnd(7)} ${[...names].sort().join(', ')}`);
+  for (const [slot, names] of styles) lines.push(`  ${slot.padEnd(7)} ${[...names].toSorted().join(', ')}`);
   lines.push('', `Components used (${components.size})`);
-  for (const [name, c] of [...components].sort((a, b) => b[1].count - a[1].count)) {
+  for (const [name, c] of [...components].toSorted((a, b) => b[1].count - a[1].count)) {
     lines.push(`  ${name.padEnd(36)} x${c.count}${c.props.size > 0 ? `  variants: ${[...c.props].join(', ')}` : ''}`);
   }
 
   const open = s.comments.filter((c) => !c.resolved);
-  lines.push('', `Comments: ${open.length} open, ${s.comments.length - open.length} resolved, ${s.comments.filter((c) => c.frameId).length} inside read frames`);
+  lines.push(
+    '',
+    `Comments: ${open.length} open, ${s.comments.length - open.length} resolved, ${s.comments.filter((c) => c.frameId).length} inside read frames`,
+  );
   lines.push(`Hidden nodes left out: ${s.hiddenNodes}`);
   const c = stats.calls;
-  lines.push(`Figma API calls: meta ${c.meta}, outline ${c.outline}, frames ${c.nodes}, comments ${c.comments}; frames from cache: ${stats.cachedFrames}`);
+  lines.push(
+    `Figma API calls: meta ${c.meta}, outline ${c.outline}, frames ${c.nodes}, comments ${c.comments}; frames from cache: ${stats.cachedFrames}`,
+  );
   return `${lines.join('\n')}\n`;
 }
 

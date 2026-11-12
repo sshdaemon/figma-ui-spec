@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { applyDeclarations, buildTokens, classify, parseThemeDeclarations, stripComments, toEm, toPx, toRatio } from '../src/catalogue/theme.ts';
+import {
+  applyDeclarations,
+  buildTokens,
+  classify,
+  parseThemeDeclarations,
+  stripComments,
+  toEm,
+  toPx,
+  toRatio,
+} from '../src/catalogue/theme.ts';
 
 const options = { rootPx: 16, fontFamilies: { display: 'Comfortaa' } };
 
@@ -44,11 +53,18 @@ test('applyDeclarations lets later values win and namespace resets clear earlier
   assert.deepEqual([...map.keys()], ['colorful', 'color-gray', 'text-sm']);
   assert.equal(map.get('text-sm')?.origin, 'project');
   assert.equal(applyDeclarations([...decls, { name: '*', value: 'initial', origin: 'project' }]).size, 0);
-  assert.deepEqual([...applyDeclarations([...decls, { name: 'text-sm', value: 'initial', origin: 'project' }]).keys()], ['colorful', 'color-gray']);
+  assert.deepEqual(
+    [...applyDeclarations([...decls, { name: 'text-sm', value: 'initial', origin: 'project' }]).keys()],
+    ['colorful', 'color-gray'],
+  );
 });
 
 test('a namespace reset keeps the sub-namespaces Tailwind exempts', () => {
-  const base = ['font-sans', 'font-weight-bold', 'text-sm', 'text-shadow-xs', 'inset-shadow-sm', 'inset-x-0'].map((name) => ({ name, value: 'x', origin: 'base' as const }));
+  const base = ['font-sans', 'font-weight-bold', 'text-sm', 'text-shadow-xs', 'inset-shadow-sm', 'inset-x-0'].map((name) => ({
+    name,
+    value: 'x',
+    origin: 'base' as const,
+  }));
   const reset = ['font-*', 'text-*', 'inset-*'].map((name) => ({ name, value: 'initial', origin: 'project' as const }));
   assert.deepEqual([...applyDeclarations([...base, ...reset]).keys()], ['font-weight-bold', 'text-shadow-xs', 'inset-shadow-sm']);
 });

@@ -14,7 +14,20 @@ export function indexTokens(tokens: readonly Token[]): TokenIndex {
 const STATIC_LEADING: Readonly<Record<string, number>> = { none: 1 };
 
 /** `text-*` utilities that set alignment, wrapping or overflow, not type. */
-const TEXT_LAYOUT = new Set(['left', 'center', 'right', 'justify', 'start', 'end', 'ellipsis', 'clip', 'wrap', 'nowrap', 'balance', 'pretty']);
+const TEXT_LAYOUT = new Set([
+  'left',
+  'center',
+  'right',
+  'justify',
+  'start',
+  'end',
+  'ellipsis',
+  'clip',
+  'wrap',
+  'nowrap',
+  'balance',
+  'pretty',
+]);
 
 /** `text-*` keywords that set colour without a theme variable. */
 const TEXT_COLOR_KEYWORDS = new Set(['inherit', 'current', 'transparent']);

@@ -99,6 +99,21 @@ const DEEPEN_DEPTH = 2;
 const DEEPEN_ROUNDS = 6;
 const DEEPEN_BATCH = 20;
 
+async function readCut(
+  api: FigmaApi,
+  fileKey: string,
+  ids: readonly string[],
+  calls: { outline: number },
+): Promise<Map<string, FigmaNode>> {
+  const read = new Map<string, FigmaNode>();
+  for (let i = 0; i < ids.length; i += DEEPEN_BATCH) {
+    const more = await api.nodes(fileKey, ids.slice(i, i + DEEPEN_BATCH), DEEPEN_DEPTH);
+    calls.outline++;
+    for (const [id, entry] of Object.entries(more.nodes)) if (entry) read.set(id, entry.document);
+  }
+  return read;
+}
+
 /** The root read to OUTLINE_DEPTH, then whatever that cut off (sections nested deeper) read in further rounds. */
 async function readOutline(api: FigmaApi, fileKey: string, rootId: string, calls: { outline: number }): Promise<FigmaNode> {
   const response = await api.nodes(fileKey, [rootId], OUTLINE_DEPTH);
@@ -109,24 +124,24 @@ async function readOutline(api: FigmaApi, fileKey: string, rootId: string, calls
   for (let round = 0; round < DEEPEN_ROUNDS; round++) {
     const cut = cutOff(doc, limit);
     if (cut.length === 0) return doc;
-    const read = new Map<string, FigmaNode>();
-    for (let i = 0; i < cut.length; i += DEEPEN_BATCH) {
-      const more = await api.nodes(fileKey, cut.slice(i, i + DEEPEN_BATCH), DEEPEN_DEPTH);
-      calls.outline++;
-      for (const [id, entry] of Object.entries(more.nodes)) if (entry) read.set(id, entry.document);
-    }
-    doc = graft(doc, read);
+    doc = graft(doc, await readCut(api, fileKey, cut, calls));
     limit += DEEPEN_DEPTH;
   }
   throw new DesignReadError(`sections under ${rootId} nest deeper than this tool reads; open a deeper section's link instead`);
 }
 
 /** Comments pinned inside the read frames or anywhere under the root, with the frame each sits in. */
-function commentsFor(raw: readonly FigmaComment[], frames: Readonly<Record<string, DesignNode>>, rootId: string, underRoot: ReadonlySet<string>): DesignComment[] {
+function commentsFor(
+  raw: readonly FigmaComment[],
+  frames: Readonly<Record<string, DesignNode>>,
+  rootId: string,
+  underRoot: ReadonlySet<string>,
+): DesignComment[] {
   const frameOf = new Map<string, string>();
   for (const [frameId, node] of Object.entries(frames)) for (const id of collectNodeIds(node)) frameOf.set(id, frameId);
   const byId = new Map(raw.map((c) => [c.id, c]));
-  const nodeOf = (c: FigmaComment): string | undefined => c.client_meta?.node_id ?? (c.parent_id ? byId.get(c.parent_id)?.client_meta?.node_id : undefined);
+  const nodeOf = (c: FigmaComment): string | undefined =>
+    c.client_meta?.node_id ?? (c.parent_id ? byId.get(c.parent_id)?.client_meta?.node_id : undefined);
   return raw
     .filter((c) => {
       const node = nodeOf(c);

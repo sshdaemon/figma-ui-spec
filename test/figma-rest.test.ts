@@ -44,7 +44,10 @@ test('FigmaRest waits out a short rate limit once, and stops on a long one', asy
   assert.deepEqual(waits, [3000]);
 
   const long = fakeFetch([json({}, 429, { 'retry-after': '86400' })]);
-  await assert.rejects(new FigmaRest('t', { fetch: long.fetch, sleep }).comments('K'), (err) => err instanceof FigmaApiError && err.status === 429 && /retry in 86400s/.test(err.message));
+  await assert.rejects(
+    new FigmaRest('t', { fetch: long.fetch, sleep }).comments('K'),
+    (err) => err instanceof FigmaApiError && err.status === 429 && /retry in 86400s/.test(err.message),
+  );
 
   const twice = fakeFetch([json({}, 429, { 'retry-after': '1' }), json({}, 429, { 'retry-after': '1' })]);
   await assert.rejects(new FigmaRest('t', { fetch: twice.fetch, sleep }).comments('K'), /rate limit/);
@@ -61,10 +64,22 @@ test('FigmaRest explains access errors without echoing the token', async () => {
 });
 
 test('parseFigmaUrl reads design, file and branch URLs', () => {
-  assert.deepEqual(parseFigmaUrl('https://www.figma.com/design/AbCdEfGhIjKl/Name?node-id=12-34&m=dev'), { fileKey: 'AbCdEfGhIjKl', nodeId: '12:34' });
+  assert.deepEqual(parseFigmaUrl('https://www.figma.com/design/AbCdEfGhIjKl/Name?node-id=12-34&m=dev'), {
+    fileKey: 'AbCdEfGhIjKl',
+    nodeId: '12:34',
+  });
   assert.deepEqual(parseFigmaUrl('https://figma.com/file/AbCdEfGhIjKl/Name'), { fileKey: 'AbCdEfGhIjKl' });
-  assert.deepEqual(parseFigmaUrl('https://www.figma.com/design/AbCdEfGhIjKl/branch/BrAnChKeY123/Name?node-id=1-2'), { fileKey: 'BrAnChKeY123', nodeId: '1:2' });
-  for (const bad of ['not a url', 'https://example.com/design/AbCdEfGhIjKl/x', 'https://www.figma.com/board/AbCdEfGhIjKl/x', 'https://www.figma.com/design/x', 'https://www.figma.com/design/AbCdEfGhIjKl/x?node-id=abc']) {
+  assert.deepEqual(parseFigmaUrl('https://www.figma.com/design/AbCdEfGhIjKl/branch/BrAnChKeY123/Name?node-id=1-2'), {
+    fileKey: 'BrAnChKeY123',
+    nodeId: '1:2',
+  });
+  for (const bad of [
+    'not a url',
+    'https://example.com/design/AbCdEfGhIjKl/x',
+    'https://www.figma.com/board/AbCdEfGhIjKl/x',
+    'https://www.figma.com/design/x',
+    'https://www.figma.com/design/AbCdEfGhIjKl/x?node-id=abc',
+  ]) {
     assert.throws(() => parseFigmaUrl(bad), FigmaUrlError, bad);
   }
 });
