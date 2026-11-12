@@ -18,7 +18,9 @@ export function buildCatalogue(config: RepoConfig): Catalogue {
   const options = { rootPx: config.theme.rootPx, fontFamilies: config.theme.fontFamilies };
   const tokens = buildTokens(applyDeclarations(decls), options);
   const index = indexTokens(tokens);
-  const typography = config.typography.flatMap((t) => typographyVariants(t.component, readCva(inRepo(t.file), t.cva), index, options.rootPx));
+  const typography = config.typography.flatMap((t) =>
+    typographyVariants(t.component, readCva(inRepo(t.file), t.cva), index, options.rootPx),
+  );
   return { tokens, typography, protectedPaths: config.protectedPaths };
 }
 

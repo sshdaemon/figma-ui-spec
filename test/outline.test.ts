@@ -37,7 +37,10 @@ test('outline keeps design frames and components and says why everything else wa
 test('a project rule can skip a whole section', () => {
   const { items, skipped } = outline(samplePage(), [{ type: 'SECTION', name: '^Icons$', reason: 'graphics' }]);
   assert.ok(!items.some((i) => i.id === '2:12' || i.id === '2:15'));
-  assert.deepEqual(skipped.find((s) => s.id === '1:2'), { id: '1:2', name: 'Icons', type: 'SECTION', reason: 'graphics', sections: ['Final'] });
+  assert.deepEqual(
+    skipped.find((s) => s.id === '1:2'),
+    { id: '1:2', name: 'Icons', type: 'SECTION', reason: 'graphics', sections: ['Final'] },
+  );
 });
 
 test('cutOff finds sections and section children a depth-limited read cut off, and graft fills them in', () => {
@@ -47,8 +50,17 @@ test('cutOff finds sections and section children a depth-limited read cut off, a
   const read = new Map(['2:12', '1:4'].map((id) => [id, cutAt(find(page, id), 2)]));
   const full = graft(cut, read);
   assert.deepEqual(cutOff(full, 5), []);
-  assert.deepEqual(outline(full).items.map((i) => i.id), outline(page).items.map((i) => i.id));
-  assert.deepEqual(outline(cut).items.map((i) => i.id).includes('2:15'), false, 'without the extra read the nested frame is missing');
+  assert.deepEqual(
+    outline(full).items.map((i) => i.id),
+    outline(page).items.map((i) => i.id),
+  );
+  assert.deepEqual(
+    outline(cut)
+      .items.map((i) => i.id)
+      .includes('2:15'),
+    false,
+    'without the extra read the nested frame is missing',
+  );
 });
 
 function find(n: FigmaNode, id: string): FigmaNode {
@@ -79,7 +91,13 @@ test('project rules come before the built-in ones', () => {
 });
 
 test('a frame or section root reads as itself', () => {
-  assert.deepEqual(outline(node('FRAME', '9:1', 'Modal')).items.map((i) => [i.id, i.sections]), [['9:1', []]]);
+  assert.deepEqual(
+    outline(node('FRAME', '9:1', 'Modal')).items.map((i) => [i.id, i.sections]),
+    [['9:1', []]],
+  );
   const section = node('SECTION', '9:2', 'Final', { children: [node('FRAME', '9:3', 'Screen')] });
-  assert.deepEqual(outline(section).items.map((i) => [i.id, i.sections]), [['9:3', ['Final']]]);
+  assert.deepEqual(
+    outline(section).items.map((i) => [i.id, i.sections]),
+    [['9:3', ['Final']]],
+  );
 });

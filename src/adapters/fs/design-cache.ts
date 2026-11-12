@@ -31,9 +31,12 @@ export class FsDesignCache implements DesignCache {
   }
 
   private file(fileKey: string, version: string, name: string): string {
-    const safe = (s: string): string => s.replace(/[^\w.-]/g, '_');
     return path.join(this.root, safe(fileKey), safe(version), `${safe(name)}.json`);
   }
+}
+
+function safe(s: string): string {
+  return s.replace(/[^\w.-]/g, '_');
 }
 
 /** Ignores everything, for `--no-cache`. */

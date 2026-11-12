@@ -44,11 +44,23 @@ test('readDesign reads the outline once at depth 3, then the frames in batches, 
   const first = await readDesign(api, cache, target, { batchSize: 4 });
   assert.deepEqual(calls[0], { ids: ['0:1'], depth: 3 });
   assert.deepEqual(calls[1], { ids: ['2:12', '1:4'], depth: 2 }, 'the nested section the depth cut off is read in a second outline call');
-  assert.deepEqual(calls.slice(2).map((c) => c.ids), [['2:1', '2:2', '2:9', '2:12'], ['2:15', '2:13', '2:14']]);
+  assert.deepEqual(
+    calls.slice(2).map((c) => c.ids),
+    [
+      ['2:1', '2:2', '2:9', '2:12'],
+      ['2:15', '2:13', '2:14'],
+    ],
+  );
   assert.deepEqual(first.stats.calls, { meta: 1, outline: 2, nodes: 2, comments: 1 });
   assert.deepEqual(Object.keys(first.snapshot.frames), ['2:1', '2:2', '2:9', '2:12', '2:15', '2:13', '2:14']);
   assert.equal(first.snapshot.root.name, 'Checkout');
-  assert.deepEqual(first.snapshot.skipped.at(-1), { id: '2:16', name: 'Frame 2', type: 'FRAME', reason: 'label', sections: ['Final', 'Icons', 'Old icons'] });
+  assert.deepEqual(first.snapshot.skipped.at(-1), {
+    id: '2:16',
+    name: 'Frame 2',
+    type: 'FRAME',
+    reason: 'label',
+    sections: ['Final', 'Icons', 'Old icons'],
+  });
 
   const again = await readDesign(api, cache, target, { batchSize: 4 });
   assert.equal(calls.length, 4, 'nothing re-read for the same version');
@@ -65,7 +77,10 @@ test('readDesign reads only the frames asked for, and says when a node is missin
   const { snapshot } = await readDesign(api, memoryCache(), target, { frames: ['2:2'] });
   assert.deepEqual(Object.keys(snapshot.frames), ['2:2']);
   assert.deepEqual(calls.at(-1)?.ids, ['2:2']);
-  await assert.rejects(readDesign(api, memoryCache(), target, { frames: ['9:9'] }), (err) => err instanceof DesignReadError && /frame 9:9/.test(err.message));
+  await assert.rejects(
+    readDesign(api, memoryCache(), target, { frames: ['9:9'] }),
+    (err) => err instanceof DesignReadError && /frame 9:9/.test(err.message),
+  );
   await assert.rejects(readDesign(api, memoryCache(), { ...target, nodeId: '7:7' }), /node 7:7 is not in file/);
   await assert.rejects(readDesign(api, memoryCache(), { fileKey: 'AbCdEfGhIjKlMn' }), /needs a node-id/);
 });

@@ -100,16 +100,14 @@ function skipRules(design: unknown, file: string): SkipRule[] {
     const where = `${file}: design.skip[${i}]`;
     const rule = record(r, where);
     const name = rule['name'] === undefined ? undefined : str(rule['name'], `${where}.name`);
-    if (name !== undefined) {
-      try {
-        new RegExp(name);
-      } catch {
-        throw new ConfigError(`${where}.name is not a valid regular expression`);
-      }
-    }
+    if (name !== undefined && !isValidPattern(name)) throw new ConfigError(`${where}.name is not a valid regular expression`);
     const type = rule['type'] === undefined ? undefined : str(rule['type'], `${where}.type`).toUpperCase();
     if (name === undefined && type === undefined) throw new ConfigError(`${where} needs a name or a type`);
-    return { reason: str(rule['reason'], `${where}.reason`), ...(name === undefined ? {} : { name }), ...(type === undefined ? {} : { type }) };
+    return {
+      reason: str(rule['reason'], `${where}.reason`),
+      ...(name === undefined ? {} : { name }),
+      ...(type === undefined ? {} : { type }),
+    };
   });
 }
 
@@ -126,4 +124,13 @@ function list(v: unknown, where: string): unknown[] {
 function str(v: unknown, where: string): string {
   if (typeof v !== 'string' || v === '') throw new ConfigError(`${where} must be a non-empty string`);
   return v;
+}
+
+function isValidPattern(source: string): boolean {
+  try {
+    RegExp(source);
+    return true;
+  } catch {
+    return false;
+  }
 }

@@ -67,8 +67,12 @@ A test and the pre-commit hook (enabled by `npm install`) refuse to track any of
 
 ```bash
 npm run typecheck
+npm run lint            # oxlint, warnings fail
+npm run format          # oxfmt; format:check in CI
 npm test
 ```
+
+Lint rules live in `.oxlintrc.json`: oxlint's correctness, suspicious and perf categories, a few style rules, and sonarjs complexity limits (cognitive complexity 15, nesting 3, at most 3 operators per condition). The pre-commit hook runs lint and the format check when `node_modules` is installed. It checks the whole working tree, not only what is staged, so format or stash untracked scratch files before committing.
 
 `fixtures/tailwind-v4` is a small project with the edge cases the readers have to handle: a `/*` inside a string, namespace resets, nested `@keyframes`, runtime font variables, `var()` fallbacks and cva definitions with arrays, numeric and boolean keys.
 
