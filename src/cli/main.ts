@@ -91,7 +91,10 @@ async function runDesign(values: Values): Promise<number> {
   const token = process.env['FIGMA_TOKEN'];
   if (!token) throw new ConfigError('FIGMA_TOKEN is not set: put it in .env (see .env.example) or the environment');
   const skipRules = values.repo ? loadRepoConfig(values.repo).design.skip : [];
-  const frames = values.frames?.split(',').map((f) => f.trim().replace('-', ':')).filter(Boolean);
+  const frames = values.frames
+    ?.split(',')
+    .map((f) => f.trim().replace('-', ':'))
+    .filter(Boolean);
   const cache = values['no-cache'] ? NO_CACHE : new FsDesignCache(path.join(TOOL_ROOT, '.cache'));
   const { snapshot, stats } = await readDesign(new FigmaRest(token), cache, parseFigmaUrl(values.figma), {
     skipRules,

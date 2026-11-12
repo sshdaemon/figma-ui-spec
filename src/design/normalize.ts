@@ -183,11 +183,13 @@ function componentOf(n: FigmaNode, entry: FigmaNodeEntry): ComponentUse | undefi
   };
 }
 
+function byte(v: number): string {
+  return Math.round(Math.min(1, Math.max(0, v)) * 255)
+    .toString(16)
+    .padStart(2, '0');
+}
+
 export function toHex(c: FigmaColor, opacity: number): string {
-  const byte = (v: number): string =>
-    Math.round(Math.min(1, Math.max(0, v)) * 255)
-      .toString(16)
-      .padStart(2, '0');
   const alpha = c.a * opacity;
   return `#${byte(c.r)}${byte(c.g)}${byte(c.b)}${alpha < 1 ? byte(alpha) : ''}`;
 }

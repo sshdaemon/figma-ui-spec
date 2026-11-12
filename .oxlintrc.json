@@ -1,0 +1,64 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "unicorn", "import", "oxc", "node", "promise"],
+  "jsPlugins": ["eslint-plugin-sonarjs"],
+  "env": {
+    "node": true,
+    "es2024": true
+  },
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error"
+  },
+  "ignorePatterns": ["node_modules/**", ".cache/**", ".repos/**", "fixtures/**"],
+  "rules": {
+    "eqeqeq": "error",
+    "no-var": "error",
+    "prefer-const": "error",
+    "no-param-reassign": "error",
+    "no-console": "error",
+    "curly": ["error", "multi-line"],
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-non-null-assertion": "error",
+    "typescript/array-type": [
+      "error",
+      {
+        "default": "array"
+      }
+    ],
+    "unicorn/prefer-node-protocol": "error",
+    "unicorn/prefer-at": "error",
+    "unicorn/no-array-for-each": "error",
+    "unicorn/prefer-string-slice": "error",
+    "import/no-cycle": "error",
+    "import/no-duplicates": "error",
+    "sonarjs/cognitive-complexity": ["error", 15],
+    "sonarjs/nested-control-flow": [
+      "error",
+      {
+        "maximumNestingLevel": 3
+      }
+    ],
+    "sonarjs/expression-complexity": [
+      "error",
+      {
+        "max": 3
+      }
+    ],
+    "sonarjs/no-identical-functions": "error",
+    "sonarjs/no-collapsible-if": "error",
+    "eslint/no-await-in-loop": "off",
+    "oxc/no-map-spread": "off"
+  },
+  "overrides": [
+    {
+      "files": ["test/**"],
+      "rules": {
+        "sonarjs/cognitive-complexity": "off",
+        "sonarjs/no-identical-functions": "off"
+      }
+    }
+  ]
+}
