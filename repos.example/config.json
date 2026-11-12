@@ -4,10 +4,29 @@
     "base": "node_modules/tailwindcss/theme.css",
     "files": ["src/styles/globals.css"],
     "rootPx": 16,
-    "fontFamilies": { "sans": "Inter" }
+    "fontFamilies": {
+      "sans": "Inter"
+    }
   },
   "typography": [
-    { "component": "Heading", "file": "src/ui/heading.tsx", "cva": "headingVariants" }
+    {
+      "component": "Heading",
+      "file": "src/ui/heading.tsx",
+      "cva": "headingVariants"
+    }
   ],
-  "protectedPaths": ["src/ui/**", "src/styles/globals.css"]
+  "protectedPaths": ["src/ui/**", "src/styles/globals.css"],
+  "design": {
+    "skip": [
+      {
+        "name": "^Annotation",
+        "reason": "annotation"
+      },
+      {
+        "type": "SECTION",
+        "name": "^Archive",
+        "reason": "old versions"
+      }
+    ]
+  }
 }
