@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import type { SkipRule } from '../design/outline.ts';
 
 export interface TypographyComponentConfig {
   readonly component: string;
@@ -23,6 +24,10 @@ export interface RepoConfig {
   readonly typography: readonly TypographyComponentConfig[];
   /** Repo-relative globs of shared code that feature work must not change. */
   readonly protectedPaths: readonly string[];
+  readonly design: {
+    /** Extra rules for items next to the screens that are not designs, on top of the built-in ones. */
+    readonly skip: readonly SkipRule[];
+  };
 }
 
 export class ConfigError extends Error {
@@ -84,7 +89,26 @@ export function parseRepoConfig(raw: unknown, file: string, rootOverride?: strin
     },
     typography,
     protectedPaths: list(obj['protectedPaths'] ?? [], `${file}: protectedPaths`).map((p, i) => str(p, `${file}: protectedPaths[${i}]`)),
+    design: { skip: skipRules(obj['design'], file) },
   };
+}
+
+function skipRules(design: unknown, file: string): SkipRule[] {
+  if (design === undefined) return [];
+  const rules = list(record(design, `${file}: design`)['skip'] ?? [], `${file}: design.skip`);
+  return rules.map((r, i) => {
+    const where = `${file}: design.skip[${i}]`;
+    const rule = record(r, where);
+    const name = rule['name'] === undefined ? undefined : str(rule['name'], `${where}.name`);
+    if (name !== undefined && !isValidPattern(name)) throw new ConfigError(`${where}.name is not a valid regular expression`);
+    const type = rule['type'] === undefined ? undefined : str(rule['type'], `${where}.type`).toUpperCase();
+    if (name === undefined && type === undefined) throw new ConfigError(`${where} needs a name or a type`);
+    return {
+      reason: str(rule['reason'], `${where}.reason`),
+      ...(name === undefined ? {} : { name }),
+      ...(type === undefined ? {} : { type }),
+    };
+  });
 }
 
 function record(v: unknown, where: string): Record<string, unknown> {
@@ -100,4 +124,13 @@ function list(v: unknown, where: string): unknown[] {
 function str(v: unknown, where: string): string {
   if (typeof v !== 'string' || v === '') throw new ConfigError(`${where} must be a non-empty string`);
   return v;
+}
+
+function isValidPattern(source: string): boolean {
+  try {
+    RegExp(source);
+    return true;
+  } catch {
+    return false;
+  }
 }
