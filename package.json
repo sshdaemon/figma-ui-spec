@@ -1,0 +1,25 @@
+{
+  "name": "figma-ui-spec",
+  "version": "0.1.0",
+  "description": "Turns a Figma design into a build spec in a project's own tokens and components, lists where the design and the design system disagree, and guards shared components against side-effect changes.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "figma-ui-spec": "./bin/figma-ui-spec.js"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test test/*.test.ts",
+    "figma-ui-spec": "node bin/figma-ui-spec.js",
+    "prepare": "git config core.hooksPath scripts/git-hooks || true"
+  },
+  "dependencies": {
+    "typescript": "6.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.0"
+  }
+}

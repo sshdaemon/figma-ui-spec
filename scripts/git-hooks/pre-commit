@@ -1,0 +1,8 @@
+#!/bin/sh
+# Refuse commits that would track secrets or project-specific content.
+bad=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^(\.env$|\.repos/|\.cache/)')
+if [ -n "$bad" ]; then
+  echo "refusing to commit machine- or project-specific files:" >&2
+  echo "$bad" >&2
+  exit 1
+fi
