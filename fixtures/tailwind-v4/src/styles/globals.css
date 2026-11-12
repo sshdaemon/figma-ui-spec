@@ -1,0 +1,34 @@
+@import "tailwindcss";
+@source "../../node_modules/some-lib/dist/*.js";
+
+/* Project tokens. The source line above holds a comment opener inside a string. */
+@theme {
+  --color-*: initial;
+  --color-white: #fff;
+  --color-gray-200: #e5e7eb;
+  --color-black-900: #151b26;
+  --color-fg: var(--color-black-900);
+  --color-foreground: var(--color-fg);
+  --color-primary: var(--color-missing, #57db45);
+
+  --font-display: var(--font-display);
+
+  --text-*: initial;
+  --text-h1: 1.875rem;
+  --text-body: 1rem;
+
+  --tracking-wider: 1.2px;
+  --padding-1\/2: 50%;
+
+  @keyframes spin {
+    to {
+      --not-a-token: 1;
+    }
+  }
+}
+
+@layer base {
+  h1 {
+    --not-theme: 2px;
+  }
+}

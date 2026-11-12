@@ -1,0 +1,13 @@
+{
+  "root": "/absolute/path/to/your/project",
+  "theme": {
+    "base": "node_modules/tailwindcss/theme.css",
+    "files": ["src/styles/globals.css"],
+    "rootPx": 16,
+    "fontFamilies": { "sans": "Inter" }
+  },
+  "typography": [
+    { "component": "Heading", "file": "src/ui/heading.tsx", "cva": "headingVariants" }
+  ],
+  "protectedPaths": ["src/ui/**", "src/styles/globals.css"]
+}
