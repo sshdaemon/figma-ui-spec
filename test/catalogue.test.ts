@@ -74,3 +74,13 @@ test('repo configs come from the repos folder, are validated, and --root replace
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('design skip rules are validated, and a rule type is upper-cased', () => {
+  const withSkip = (skip: unknown) => parseRepoConfig({ ...config, design: { skip } }, 'cfg');
+  assert.deepEqual(parseRepoConfig(config, 'cfg').design.skip, []);
+  assert.deepEqual(withSkip([{ name: '^Annotation', type: 'frame', reason: 'annotation' }]).design.skip, [{ reason: 'annotation', name: '^Annotation', type: 'FRAME' }]);
+  assert.throws(() => withSkip([{ name: '(', reason: 'x' }]), /design\.skip\[0\]\.name is not a valid regular expression/);
+  assert.throws(() => withSkip([{ reason: 'x' }]), /design\.skip\[0\] needs a name or a type/);
+  assert.throws(() => withSkip([{ name: 'a' }]), /design\.skip\[0\]\.reason must be a non-empty string/);
+  assert.throws(() => withSkip('nope'), /design\.skip must be an array/);
+});
