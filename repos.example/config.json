@@ -28,5 +28,10 @@
         "reason": "old versions"
       }
     ]
+  },
+  "components": {
+    "dirs": ["src/ui"],
+    "iconDirs": ["src/icons"],
+    "lucide": "node_modules/lucide-react/dist/esm/icons"
   }
 }

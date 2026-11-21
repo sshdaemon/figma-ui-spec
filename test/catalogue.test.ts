@@ -89,3 +89,16 @@ test('design skip rules are validated, and a rule type is upper-cased', () => {
   assert.throws(() => withSkip([{ name: 'a' }]), /design\.skip\[0\]\.reason must be a non-empty string/);
   assert.throws(() => withSkip('nope'), /design\.skip must be an array/);
 });
+
+test('the components block defaults to empty and is validated', () => {
+  assert.deepEqual(parseRepoConfig(config, 'cfg').components, { dirs: [], iconDirs: [] });
+  const withComponents = (components: unknown) => parseRepoConfig({ ...config, components }, 'cfg').components;
+  assert.deepEqual(withComponents({ dirs: ['src/ui'], iconDirs: ['src/icons'], lucide: 'node_modules/lucide-react/dist/esm/icons' }), {
+    dirs: ['src/ui'],
+    iconDirs: ['src/icons'],
+    lucide: 'node_modules/lucide-react/dist/esm/icons',
+  });
+  assert.throws(() => withComponents({ dirs: 'src/ui' }), /components\.dirs must be an array/);
+  assert.throws(() => withComponents({ lucide: 3 }), /components\.lucide must be a non-empty string/);
+  assert.throws(() => withComponents([]), /components must be an object/);
+});

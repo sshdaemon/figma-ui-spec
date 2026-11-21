@@ -4,7 +4,7 @@ Turns a Figma design into a build spec written in a project's own tokens and com
 
 Built for Tailwind v4 projects whose shared components use [cva](https://cva.style). The project itself is never changed: the tool only reads it.
 
-Status: `catalogue` and `design` work. The spec and the guard are not built yet.
+Status: `catalogue`, `design`, `table` and `map` work. The spec and the guard are not built yet.
 
 ## Use
 
@@ -38,6 +38,20 @@ node bin/figma-ui-spec.js design --figma '<url>' --frames 12:40,12:41 --json > s
 
 Responses are cached in `.cache/<file key>/<version>/`, so re-reading an unchanged file costs two calls (the version check and the comments). The token's owner needs a Full or Dev seat: Figma's limits for the node endpoint are much lower for View and Collab seats. A short `Retry-After` is waited out once; a long one stops the run with the wait time.
 
+```bash
+node bin/figma-ui-spec.js table --repo my-web-app --figma '<url>'
+node bin/figma-ui-spec.js map --repo my-web-app --key <library key> --name Checkbox --to src/ui/Checkbox.tsx#Checkbox
+```
+
+`table` puts every value and component the design uses next to what the project's code has for it, with how often each is used:
+
+- colours by library style or raw value: the token with that value, preferring palette names over aliases; a translucent colour as `token/opacity`;
+- text: the typography component variant that matches exactly, else the utility classes that build it from theme tokens, with what the nearest variant gets wrong;
+- shadows by effect style, gaps and padding as steps of the spacing unit, and corner radii;
+- components: the code component already mapped with `map`, lucide or project icons for small icon components, and name-based suggestions for the rest.
+
+Each row has a status: `same`, `renamed` (the value exists under another name), `classes` (no component variant, but tokens cover it), `differs` (the code has the name with another value), `off-scale` or `missing` (with the nearest option). `map` saves a decided component mapping to `.repos/<name>/component-map.json`, under the key the table shows: the Figma library key, or `name:<name>` for a component local to the design file, so the mapping still holds when it is copied to another file. An entry may also carry `props`, mapping Figma property values to code props.
+
 Needs Node 22.18 or later; the CLI runs the TypeScript sources directly.
 
 ## Configure
@@ -61,6 +75,7 @@ A test and the pre-commit hook (enabled by `npm install`) refuse to track any of
 - `theme.fontFamilies`: family names for font variables set at runtime (for example by `next/font`), keyed by the token's name: `{ "karla": "Karla" }` for `--font-karla`.
 - `typography`: typography components, each with its `component` name, the `file` holding its definition and the `cva` variable name.
 - `protectedPaths`: globs of shared code that feature work must not change.
+- `components.dirs`: folders whose exported PascalCase components are candidates for Figma components; `components.iconDirs`: the project's icon components; `components.lucide`: lucide's icon module folder, when the project uses lucide.
 - `design.skip`: extra skip rules for `design`, each with a `reason` and a `name` regex, a node `type`, or both: `{ "name": "^Annotation", "reason": "annotation" }`.
 
 ## Develop
