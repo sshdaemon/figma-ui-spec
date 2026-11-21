@@ -209,3 +209,60 @@ export function toRatio(value: string): number | undefined {
 export function round(n: number): number {
   return Math.round(n * 1000) / 1000;
 }
+
+/**
+ * The CSS without comments and without the top-level custom properties of its `@theme` blocks, whitespace collapsed:
+ * what is left to compare once token changes are accounted for. Nested rules inside a block stay.
+ */
+export function themeResidue(css: string): string {
+  const text = stripComments(css);
+  let out = '';
+  let from = 0;
+  const blockStart = /@theme\b[^{;]*\{/g;
+  for (let match = blockStart.exec(text); match; match = blockStart.exec(text)) {
+    const start = match.index + match[0].length;
+    const block = keepNested(text, start);
+    out += text.slice(from, start) + block.kept;
+    from = block.end;
+    blockStart.lastIndex = block.end;
+  }
+  return (out + text.slice(from)).replace(/\s+/g, ' ').trim();
+}
+
+/** The block's text from `start` through its closing brace, minus its depth-1 custom property statements. */
+function keepNested(text: string, start: number): { kept: string; end: number } {
+  const state = { depth: 1, kept: '', statement: '' };
+  let i = start;
+  for (; i < text.length && state.depth > 0; i++) {
+    const ch = text[i] ?? '';
+    if (state.depth > 1) {
+      state.kept += ch;
+      state.depth += braceStep(ch);
+    } else {
+      atTopLevel(state, ch);
+    }
+  }
+  return { kept: state.kept + state.statement, end: i };
+}
+
+/** One character directly inside the block: statements collect until `;`, and custom properties are dropped. */
+function atTopLevel(state: { depth: number; kept: string; statement: string }, ch: string): void {
+  if (ch !== ';' && braceStep(ch) === 0) {
+    state.statement += ch;
+    return;
+  }
+  const opensRule = ch === '{';
+  if (opensRule || !isCustomProperty(state.statement)) state.kept += state.statement;
+  if (ch !== ';' || !isCustomProperty(state.statement)) state.kept += ch;
+  state.depth += braceStep(ch);
+  state.statement = '';
+}
+
+function braceStep(ch: string): number {
+  if (ch === '{') return 1;
+  return ch === '}' ? -1 : 0;
+}
+
+function isCustomProperty(statement: string): boolean {
+  return statement.trim().startsWith('--');
+}

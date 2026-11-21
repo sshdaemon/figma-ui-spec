@@ -266,7 +266,7 @@ export function differences(v: TextValue, x: TypographyVariant): string[] {
   return out;
 }
 
-function variantName(x: TypographyVariant): string {
+export function variantName(x: TypographyVariant): string {
   return `${x.component} ${x.prop}=${x.value}`;
 }
 
