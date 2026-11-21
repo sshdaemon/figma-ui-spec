@@ -28,6 +28,14 @@ export interface RepoConfig {
     /** Extra rules for items next to the screens that are not designs, on top of the built-in ones. */
     readonly skip: readonly SkipRule[];
   };
+  readonly components: {
+    /** Repo-relative folders whose exported PascalCase components are candidates for Figma components. */
+    readonly dirs: readonly string[];
+    /** Repo-relative folders of the project's own icon components. */
+    readonly iconDirs: readonly string[];
+    /** Repo-relative folder of lucide's icon modules, when the project uses lucide. */
+    readonly lucide?: string;
+  };
 }
 
 export class ConfigError extends Error {
@@ -90,7 +98,22 @@ export function parseRepoConfig(raw: unknown, file: string, rootOverride?: strin
     typography,
     protectedPaths: list(obj['protectedPaths'] ?? [], `${file}: protectedPaths`).map((p, i) => str(p, `${file}: protectedPaths[${i}]`)),
     design: { skip: skipRules(obj['design'], file) },
+    components: componentsConfig(obj['components'], file),
   };
+}
+
+function componentsConfig(raw: unknown, file: string): RepoConfig['components'] {
+  if (raw === undefined) return { dirs: [], iconDirs: [] };
+  const c = record(raw, `${file}: components`);
+  const strings = (key: string): string[] =>
+    list(c[key] ?? [], `${file}: components.${key}`).map((v, i) => str(v, `${file}: components.${key}[${i}]`));
+  const lucide = c['lucide'] === undefined ? undefined : str(c['lucide'], `${file}: components.lucide`);
+  return { dirs: strings('dirs'), iconDirs: strings('iconDirs'), ...(lucide === undefined ? {} : { lucide }) };
+}
+
+/** The project's learned Figma-to-code component mappings. */
+export function componentMapFile(name: string): string {
+  return path.join(reposDir(), name, 'component-map.json');
 }
 
 function skipRules(design: unknown, file: string): SkipRule[] {
