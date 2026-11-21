@@ -60,6 +60,8 @@ test('readDesign reads the outline once at depth 3, then the frames in batches, 
     type: 'FRAME',
     reason: 'label',
     sections: ['Final', 'Icons', 'Old icons'],
+    canvas: { x: 0, y: 0, w: 120, h: 40 },
+    text: 'OLD',
   });
 
   const again = await readDesign(api, cache, target, { batchSize: 4 });

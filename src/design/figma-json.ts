@@ -38,6 +38,7 @@ export interface FigmaNode {
   readonly fills?: readonly FigmaPaint[];
   readonly strokes?: readonly FigmaPaint[];
   readonly strokeWeight?: number;
+  readonly individualStrokeWeights?: { readonly top: number; readonly right: number; readonly bottom: number; readonly left: number };
   readonly cornerRadius?: number | null;
   readonly rectangleCornerRadii?: readonly number[] | null;
   readonly effects?: readonly FigmaEffect[];
@@ -51,6 +52,15 @@ export interface FigmaNode {
   readonly paddingLeft?: number | null;
   readonly primaryAxisAlignItems?: string | null;
   readonly counterAxisAlignItems?: string | null;
+  readonly layoutSizingHorizontal?: string;
+  readonly layoutSizingVertical?: string;
+  readonly layoutPositioning?: string;
+  readonly gridColumnCount?: number;
+  readonly gridRowCount?: number;
+  readonly gridColumnGap?: number;
+  readonly gridRowGap?: number;
+  readonly gridColumnSpan?: number;
+  readonly gridRowSpan?: number;
   readonly styles?: Readonly<Record<string, string>>;
   readonly boundVariables?: Readonly<Record<string, unknown>>;
   readonly characters?: string;
@@ -60,6 +70,8 @@ export interface FigmaNode {
     readonly fontSize?: number;
     readonly lineHeightPx?: number;
     readonly letterSpacing?: number;
+    readonly textCase?: string;
+    readonly textAlignHorizontal?: string;
   };
   readonly characterStyleOverrides?: readonly number[];
   readonly componentId?: string;

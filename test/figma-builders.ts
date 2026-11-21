@@ -31,7 +31,7 @@ export function samplePage(): FigmaNode {
           node('LINE', '2:5', 'Line 1'),
           node('RECTANGLE', '2:6', 'Rectangle 1', { fills: [], strokes: [solid(1, 0, 0)] }),
           node('RECTANGLE', '2:7', 'Card background', { fills: [solid(1, 1, 1)] }),
-          node('FRAME', '2:8', 'Frame 1', { children: [node('TEXT', '3:2', 'STEP ONE')] }, [0, 0, 300, 56]),
+          node('FRAME', '2:8', 'Frame 1', { children: [node('TEXT', '3:2', 'STEP ONE', { characters: 'STEP ONE' })] }, [0, 0, 300, 56]),
           node('FRAME', '2:9', 'Tall text frame', { children: [node('TEXT', '3:3', 'Body')] }, [0, 0, 300, 400]),
           node('TEXT', '2:10', 'Designer note'),
           node('FRAME', '2:11', 'Old version', { visible: false }),
@@ -41,7 +41,7 @@ export function samplePage(): FigmaNode {
               node('SECTION', '1:4', 'Old icons', {
                 children: [
                   node('FRAME', '2:15', 'icon-old', { children: [node('VECTOR', '3:5', 'path')] }, [0, 0, 24, 24]),
-                  node('FRAME', '2:16', 'Frame 2', { children: [node('TEXT', '3:6', 'OLD')] }, [0, 0, 120, 40]),
+                  node('FRAME', '2:16', 'Frame 2', { children: [node('TEXT', '3:6', 'OLD', { characters: 'OLD' })] }, [0, 0, 120, 40]),
                 ],
               }),
             ],

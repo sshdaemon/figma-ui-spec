@@ -4,7 +4,7 @@ Turns a Figma design into a build spec written in a project's own tokens and com
 
 Built for Tailwind v4 projects whose shared components use [cva](https://cva.style). The project itself is never changed: the tool only reads it.
 
-Status: `catalogue`, `design`, `table` and `map` work. The spec and the guard are not built yet.
+Status: `catalogue`, `design`, `table`, `map`, `spec` and `decide` work. The guard is not built yet.
 
 ## Use
 
@@ -51,6 +51,18 @@ node bin/figma-ui-spec.js map --repo my-web-app --key <library key> --name Check
 - components: the code component already mapped with `map`, lucide or project icons for small icon components, and name-based suggestions for the rest.
 
 Each row has a status: `same`, `renamed` (the value exists under another name), `classes` (no component variant, but tokens cover it), `differs` (the code has the name with another value), `off-scale` or `missing` (with the nearest option). `map` saves a decided component mapping to `.repos/<name>/component-map.json`, under the key the table shows: the Figma library key, or `name:<name>` for a component local to the design file, so the mapping still holds when it is copied to another file. An entry may also carry `props`, mapping Figma property values to code props.
+
+```bash
+node bin/figma-ui-spec.js spec --repo my-web-app --figma '<url>' --out docs/checkout --name checkout
+node bin/figma-ui-spec.js decide --spec docs/checkout/checkout.json --conflict K3 --outcome local-override --by Sam
+```
+
+`spec` writes `<name>.json` and `<name>.md`: what to build for each state of each flow, in the project's own terms.
+
+- **Flows and states.** Frames are grouped the way designers lay out a board: per section, split into bands by long divider lines, each band named by its top label. The label right above a frame names its state. A state whose labels say it shows today's UI (`CURRENT`, `OLD`, `EXISTING`, `BEFORE`, `LIVE`) is listed as a reference and not built.
+- **Trees.** Each state becomes a tree: `<Component> file#Export` with its props for mapped component instances, lucide icons for icon instances and `lucide/<name>` frames, typography as a component variant or classes, and the rest as markup with Tailwind classes for layout, sizing, colour, border, radius and shadow. Wrappers that add nothing are left out. Colours use the semantic alias the role makes unambiguous (`border` for strokes, `fg` for text, `bg` for fills), else the palette name.
+- **Conflicts.** A value the code does not have gets an id (`K1`, `K2`…) and the default outcome `nearest`: the closest token or variant, with the exact alternative as the override. `decide` records another outcome (`local-override`, `new-variant`, `token-change`); the next `spec` run into the same folder keeps ids and decisions and builds the trees accordingly.
+- **Questions** list missing empty, loading and error states, unmapped components with suggestions, design frames named like reference frames, and open designer comments. **Gaps** list names and values the design and the code disagree on; they also go into `.repos/<name>/design-system-gaps.md`, a running list for the designer.
 
 Needs Node 22.18 or later; the CLI runs the TypeScript sources directly.
 
