@@ -24,6 +24,8 @@ export interface RepoConfig {
   readonly typography: readonly TypographyComponentConfig[];
   /** Repo-relative globs of shared code that feature work must not change. */
   readonly protectedPaths: readonly string[];
+  /** Absolute globs of the specs whose decisions `guard` and `hook` apply when no `--spec` is given. */
+  readonly specs: readonly string[];
   readonly design: {
     /** Extra rules for items next to the screens that are not designs, on top of the built-in ones. */
     readonly skip: readonly SkipRule[];
@@ -97,6 +99,11 @@ export function parseRepoConfig(raw: unknown, file: string, rootOverride?: strin
     },
     typography,
     protectedPaths: list(obj['protectedPaths'] ?? [], `${file}: protectedPaths`).map((p, i) => str(p, `${file}: protectedPaths[${i}]`)),
+    specs: list(obj['specs'] ?? [], `${file}: specs`).map((p, i) => {
+      const glob = str(p, `${file}: specs[${i}]`);
+      if (!path.isAbsolute(glob)) throw new ConfigError(`${file}: specs[${i}] must be an absolute path`);
+      return glob;
+    }),
     design: { skip: skipRules(obj['design'], file) },
     components: componentsConfig(obj['components'], file),
   };

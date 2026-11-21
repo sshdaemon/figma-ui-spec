@@ -15,7 +15,8 @@
       "cva": "headingVariants"
     }
   ],
-  "protectedPaths": ["src/ui/**", "src/styles/globals.css"],
+  "protectedPaths": ["src/ui/**", "!**/*.test.tsx", "src/styles/globals.css"],
+  "specs": ["/absolute/path/to/docs/*/*.ui-spec.json"],
   "design": {
     "skip": [
       {

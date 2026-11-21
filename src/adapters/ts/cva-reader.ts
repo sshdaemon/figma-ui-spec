@@ -11,7 +11,34 @@ export class CvaReadError extends Error {
 
 /** Reads the `cva(...)` call assigned to `variable` in a TypeScript or TSX file. Only literal arguments are understood. */
 export function readCva(file: string, variable: string): VariantDefinition {
-  const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  return parseCva(readFileSync(file, 'utf8'), file, variable);
+}
+
+/** The same as `readCva`, for source text already in hand; `file` only names it in errors. */
+export function parseCva(text: string, file: string, variable: string): VariantDefinition {
+  const found = findCva(sourceOf(text, file), variable, file);
+  const [baseArg, configArg] = found.arguments;
+  const config = configArg && ts.isObjectLiteralExpression(configArg) ? configArg : undefined;
+  return {
+    base: baseArg ? classString(baseArg, file) : '',
+    variants: config ? readVariants(config, file) : {},
+    defaults: config ? readDefaults(config) : {},
+  };
+}
+
+/** Where the `variants` object of the cva call sits in the text, so the rest of a file can be compared without it. */
+export function cvaVariantsSpan(text: string, file: string, variable: string): { start: number; end: number } | undefined {
+  const source = sourceOf(text, file);
+  const [, configArg] = findCva(source, variable, file).arguments;
+  const node = configArg && ts.isObjectLiteralExpression(configArg) ? property(configArg, 'variants') : undefined;
+  return node ? { start: node.getStart(source), end: node.getEnd() } : undefined;
+}
+
+function sourceOf(text: string, file: string): ts.SourceFile {
+  return ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+}
+
+function findCva(source: ts.SourceFile, variable: string, file: string): ts.CallExpression {
   let found: ts.CallExpression | undefined;
   const visit = (node: ts.Node): void => {
     if (found) return;
@@ -23,14 +50,7 @@ export function readCva(file: string, variable: string): VariantDefinition {
   };
   visit(source);
   if (!found) throw new CvaReadError(`${file}: no \`const ${variable} = cva(...)\``);
-
-  const [baseArg, configArg] = found.arguments;
-  const config = configArg && ts.isObjectLiteralExpression(configArg) ? configArg : undefined;
-  return {
-    base: baseArg ? classString(baseArg, file) : '',
-    variants: config ? readVariants(config, file) : {},
-    defaults: config ? readDefaults(config) : {},
-  };
+  return found;
 }
 
 function readVariants(config: ts.ObjectLiteralExpression, file: string): Record<string, Record<string, string>> {

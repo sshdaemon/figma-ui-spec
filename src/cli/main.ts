@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { FigmaApiError, FigmaRest } from '../adapters/figma/rest.ts';
@@ -16,6 +17,10 @@ import { appendGaps, componentMapFile, ConfigError, gapsFile, loadEnv, loadRepoC
 import { renderDesign } from './design-command.ts';
 import { renderTable } from './table-command.ts';
 import { decide, previousFor, SpecFileError, writeSpec } from '../adapters/fs/spec-files.ts';
+import { ChangeSourceError, gitChanges, pathChanges } from '../adapters/git/changes.ts';
+import { guardChanges, renderGuard, specFilesFor } from './guard-command.ts';
+import { runHook } from './hook-command.ts';
+import { isGuarded } from '../guard/check.ts';
 import { buildSpec } from '../spec/build.ts';
 import { DEFAULT_REFERENCE } from '../spec/flows.ts';
 import { OUTCOMES, type Outcome } from '../spec/types.ts';
@@ -29,6 +34,8 @@ Commands
   spec                write <name>.json and <name>.md to --out: per state, what to build, with conflicts and questions
   decide              record a conflict decision in a spec (--spec, --conflict, --outcome, --by)
   map                 save which code component a Figma library component maps to (--key, --name, --to)
+  guard               list changes to protected files and theme variables that no spec decision allows; exit 1 if any
+  hook                Claude Code PreToolUse hook for Write, Edit and MultiEdit: reads the call on stdin, asks on a guard finding
 
 Options
   --repo <name>       project config to use, from .repos/<name>/config.json (design: optional, for skip rules)
@@ -40,7 +47,10 @@ Options
   --to <file#Export>  map: repo-relative file and export, or lucide-react#Icon
   --out <dir>         spec: where to write the spec (an existing spec there keeps its conflict ids and decisions)
   --name <name>       spec: file name without extension (default ui-spec); map: the Figma component's name
-  --spec <file>       decide: the spec's .json file
+  --spec <file>       decide: the spec's .json file; guard: specs whose decisions apply, comma-separated (default: the config's specs)
+  --diff <range>      guard: a git range in the project, a...b, a..b, or one ref against the working tree
+  --paths <a,b>       guard: files about to change, instead of --diff
+  --after <file>      guard: with one --paths entry, a file holding its new contents
   --conflict <id>     decide: K1, K2…
   --outcome <o>       decide: nearest, local-override, new-variant or token-change
   --by <who>          decide: who decided
@@ -49,7 +59,7 @@ Options
 `;
 
 /** Errors from what the user passed or configured: exit 2, message only. */
-const USAGE_ERRORS = [ConfigError, CvaReadError, FigmaUrlError, ComponentMapError, ComponentScanError, SpecFileError];
+const USAGE_ERRORS = [ConfigError, CvaReadError, FigmaUrlError, ComponentMapError, ComponentScanError, SpecFileError, ChangeSourceError];
 
 export async function main(argv: string[]): Promise<number> {
   try {
@@ -85,6 +95,9 @@ const OPTIONS = {
   conflict: { type: 'string' },
   outcome: { type: 'string' },
   by: { type: 'string' },
+  diff: { type: 'string' },
+  paths: { type: 'string' },
+  after: { type: 'string' },
   json: { type: 'boolean' },
   all: { type: 'boolean' },
   help: { type: 'boolean', short: 'h' },
@@ -99,6 +112,8 @@ const COMMANDS: Readonly<Record<string, (values: Values) => Promise<number>>> = 
   map: runMap,
   spec: runSpec,
   decide: runDecide,
+  guard: runGuard,
+  hook: runHookCommand,
 };
 
 async function run(argv: string[]): Promise<number> {
@@ -167,6 +182,32 @@ async function runDecide(values: Values): Promise<number> {
   if (!OUTCOMES.includes(values.outcome as Outcome)) throw new ConfigError(`--outcome must be one of ${OUTCOMES.join(', ')}`);
   const c = decide(values.spec, values.conflict, values.outcome as Outcome, values.by, new Date().toISOString().slice(0, 10));
   process.stdout.write(`${c.id} ${c.design}: ${c.outcome} (${c.decidedBy})\n`);
+  return 0;
+}
+
+async function runGuard(values: Values): Promise<number> {
+  if (!values.repo) throw new ConfigError('--repo is required');
+  if (Boolean(values.diff) === Boolean(values.paths)) throw new ConfigError('guard needs one of --diff or --paths');
+  const config = loadRepoConfig(values.repo, values.root);
+  const after = values.after === undefined ? undefined : readFileSync(values.after, 'utf8');
+  const changes = values.diff
+    ? gitChanges(config.root, values.diff, (f) => isGuarded(f, config.protectedPaths, config.theme.files))
+    : pathChanges(
+        config.root,
+        (values.paths ?? '')
+          .split(',')
+          .map((p) => p.trim())
+          .filter(Boolean),
+        after,
+      );
+  const specs = specFilesFor(config, values.spec);
+  const result = guardChanges(values.repo, config, changes, specs);
+  process.stdout.write(values.json ? `${JSON.stringify({ ...result, specs }, null, 2)}\n` : renderGuard(result, specs));
+  return result.findings.length > 0 ? 1 : 0;
+}
+
+async function runHookCommand(): Promise<number> {
+  process.stdout.write(runHook(readFileSync(0, 'utf8')));
   return 0;
 }
 

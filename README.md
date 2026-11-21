@@ -4,7 +4,7 @@ Turns a Figma design into a build spec written in a project's own tokens and com
 
 Built for Tailwind v4 projects whose shared components use [cva](https://cva.style). The project itself is never changed: the tool only reads it.
 
-Status: `catalogue`, `design`, `table`, `map`, `spec` and `decide` work. The guard is not built yet.
+Status: `catalogue`, `design`, `table`, `map`, `spec`, `decide`, `guard` and `hook` work.
 
 ## Use
 
@@ -64,6 +64,24 @@ node bin/figma-ui-spec.js decide --spec docs/checkout/checkout.json --conflict K
 - **Conflicts.** A value the code does not have gets an id (`K1`, `K2`…) and the default outcome `nearest`: the closest token or variant, with the exact alternative as the override. `decide` records another outcome (`local-override`, `new-variant`, `token-change`); the next `spec` run into the same folder keeps ids and decisions and builds the trees accordingly.
 - **Questions** list missing empty, loading and error states, unmapped components with suggestions, design frames named like reference frames, and open designer comments. **Gaps** list names and values the design and the code disagree on; they also go into `.repos/<name>/design-system-gaps.md`, a running list for the designer.
 
+```bash
+node bin/figma-ui-spec.js guard --repo my-web-app --diff origin/main...HEAD
+node bin/figma-ui-spec.js guard --repo my-web-app --paths src/ui/heading.tsx --after /tmp/heading.new.tsx --spec docs/checkout/checkout.json
+```
+
+`guard` lists changes to shared code that no decision allows, and exits 1 when there are any:
+
+- each `@theme` variable a change adds, removes or gives another value, in the config's theme files;
+- any other change to a file under `protectedPaths`, including a theme file changed outside its variables.
+
+A `new-variant` decision allows a change to the file of the typography component its nearest option names (`Heading level=1` in `src/ui/heading.tsx`) when that variant is the only existing one that changes: added variants pass, while changes to other variants, and any change outside the variant tables (base classes, defaults, compound variants, render code, other exports), stay findings. So a variant whose props are typed from the cva definition (`VariantProps<typeof …>`) can be added without asking, but one that also needs a hand-written type or render code to change asks once, and a person confirms it. A `token-change` decision allows changes to the variables its nearest option reads (`border-gray-200` allows `--color-gray-200`, `Heading level=1` allows `--text-h1` and its `--text-h1--line-height`). Decisions come from `--spec`, else from every spec the config's `specs` globs find, and only from specs written for the same project; a spec that cannot be read is skipped and named in the output. A decision is not tied to a branch: it allows the same change on any branch for as long as its spec is found, so move a finished ticket's spec out of the `specs` globs (for example by archiving its folder). `--diff` takes `a...b` (b against where it left a), `a..b`, or one ref against the working tree, untracked files included; `--paths` names files about to change, with `--after` holding the new contents of one of them. Without the new contents a theme file change is always a finding, since the variables it touches are unknown.
+
+`hook` is the same check as a [Claude Code PreToolUse hook](https://docs.claude.com/en/docs/claude-code/hooks) for `Write`, `Edit` and `MultiEdit`: it reads the tool call on stdin, works out the file's new contents, finds the project whose `root` holds the file (or a git worktree of it), and answers `ask` when the guard has findings. An edit whose result it cannot work out is checked by path, so a shared file still asks; a file outside the protected paths never reads the theme or the specs, so a person confirms the shared change. Anything else gets no answer and leaves the normal permission flow alone.
+
+```json
+{ "matcher": "Edit|Write|MultiEdit", "hooks": [{ "type": "command", "command": "node /path/to/figma-ui-spec/bin/figma-ui-spec.js hook" }] }
+```
+
 Needs Node 22.18 or later; the CLI runs the TypeScript sources directly.
 
 ## Configure
@@ -86,7 +104,8 @@ A test and the pre-commit hook (enabled by `npm install`) refuse to track any of
 - `theme.rootPx`: pixels per rem, 16 by default.
 - `theme.fontFamilies`: family names for font variables set at runtime (for example by `next/font`), keyed by the token's name: `{ "karla": "Karla" }` for `--font-karla`.
 - `typography`: typography components, each with its `component` name, the `file` holding its definition and the `cva` variable name.
-- `protectedPaths`: globs of shared code that feature work must not change.
+- `protectedPaths`: globs of shared code that feature work must not change. A `!glob` takes back files the globs before it matched: `["src/ui/**", "!**/*.test.tsx"]`.
+- `specs`: absolute globs of the specs whose decisions `guard` and `hook` apply when no `--spec` is given.
 - `components.dirs`: folders whose exported PascalCase components are candidates for Figma components; `components.iconDirs`: the project's icon components; `components.lucide`: lucide's icon module folder, when the project uses lucide.
 - `design.skip`: extra skip rules for `design`, each with a `reason` and a `name` regex, a node `type`, or both: `{ "name": "^Annotation", "reason": "annotation" }`.
 
