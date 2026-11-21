@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import type { SkipRule } from '../design/outline.ts';
 
@@ -156,4 +156,19 @@ function isValidPattern(source: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** The running list of design-system gaps across tickets, for the designer. */
+export function gapsFile(name: string): string {
+  return path.join(reposDir(), name, 'design-system-gaps.md');
+}
+
+/** Adds the gaps not already in the file, under a heading naming the design they came from. */
+export function appendGaps(file: string, gaps: readonly string[], source: string): number {
+  const existing = existsSync(file) ? readFileSync(file, 'utf8') : '# Design-system gaps\n';
+  const fresh = gaps.filter((g) => !existing.includes(`- ${g}\n`));
+  if (fresh.length === 0) return 0;
+  const body = `${existsSync(file) ? '' : existing}\n## ${source} (${new Date().toISOString().slice(0, 10)})\n\n${fresh.map((g) => `- ${g}`).join('\n')}\n`;
+  appendFileSync(file, body);
+  return fresh.length;
 }

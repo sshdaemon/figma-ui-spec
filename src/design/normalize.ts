@@ -1,5 +1,5 @@
 import type { FigmaColor, FigmaEffect, FigmaNode, FigmaNodeEntry, FigmaPaint } from './figma-json.ts';
-import type { Box, ComponentUse, DesignNode, Layout, Paint, Shadow, StyleRefs, TextContent } from './types.ts';
+import type { Box, ComponentUse, DesignNode, Layout, Paint, Shadow, Sizing, StyleRefs, TextContent } from './types.ts';
 
 export interface NormalizeResult {
   readonly node: DesignNode;
@@ -35,14 +35,18 @@ function convert(n: FigmaNode, ctx: Context): DesignNode {
   const variables = variablesOf(n.boundVariables);
   const text = textOf(n);
   const component = componentOf(n, ctx.entry);
+  const sizing = sizingOf(n);
   return {
     id: n.id,
     name: n.name,
     type: n.type,
     box: boxOf(n, ctx.origin),
     ...(layout ? { layout } : {}),
+    ...(sizing ? { sizing } : {}),
+    ...(n.layoutPositioning === 'ABSOLUTE' ? { absolute: true as const } : {}),
+    ...spanOf(n),
     ...(fills.length > 0 ? { fills } : {}),
-    ...(strokes.length > 0 ? { strokes, ...(n.strokeWeight ? { strokeWeight: n.strokeWeight } : {}) } : {}),
+    ...(strokes.length > 0 ? { strokes, ...strokeWeights(n) } : {}),
     ...(radius === undefined ? {} : { radius }),
     ...(shadows.length > 0 ? { shadows } : {}),
     ...(n.opacity !== undefined && n.opacity < 1 ? { opacity: round(n.opacity) } : {}),
@@ -64,7 +68,32 @@ function boxOf(n: FigmaNode, origin: { x: number; y: number }): Box {
   return { x: round(b.x - origin.x), y: round(b.y - origin.y), w: round(b.width), h: round(b.height) };
 }
 
+const SIZING: Readonly<Record<string, Sizing>> = { FIXED: 'fixed', HUG: 'hug', FILL: 'fill' };
+
+function sizingOf(n: FigmaNode): DesignNode['sizing'] {
+  const w = SIZING[n.layoutSizingHorizontal ?? ''];
+  const h = SIZING[n.layoutSizingVertical ?? ''];
+  return w && h ? { w, h } : undefined;
+}
+
+function spanOf(n: FigmaNode): Pick<DesignNode, 'span'> {
+  const columns = n.gridColumnSpan ?? 1;
+  const rows = n.gridRowSpan ?? 1;
+  return columns > 1 || rows > 1 ? { span: { columns, rows } } : {};
+}
+
 function layoutOf(n: FigmaNode): Layout | undefined {
+  if (n.layoutMode === 'GRID') {
+    return {
+      direction: 'grid',
+      gap: n.gridColumnGap ?? 0,
+      rowGap: n.gridRowGap ?? 0,
+      columns: n.gridColumnCount ?? 1,
+      rows: n.gridRowCount ?? 1,
+      padding: [n.paddingTop ?? 0, n.paddingRight ?? 0, n.paddingBottom ?? 0, n.paddingLeft ?? 0],
+      wrap: false,
+    };
+  }
   if (n.layoutMode !== 'HORIZONTAL' && n.layoutMode !== 'VERTICAL') return undefined;
   return {
     direction: n.layoutMode === 'HORIZONTAL' ? 'row' : 'column',
@@ -85,6 +114,13 @@ function paintOf(p: FigmaPaint): Paint {
   if (p.type === 'IMAGE') return { kind: 'image' };
   if (p.type.startsWith('GRADIENT')) return { kind: 'gradient' };
   return { kind: 'other' };
+}
+
+function strokeWeights(n: FigmaNode): Pick<DesignNode, 'strokeWeight' | 'strokeSides'> {
+  const w = n.individualStrokeWeights;
+  if (w && new Set([w.top, w.right, w.bottom, w.left]).size > 1) return { strokeSides: [w.top, w.right, w.bottom, w.left] };
+  const weight = w?.top ?? n.strokeWeight;
+  return weight ? { strokeWeight: weight } : {};
 }
 
 function radiusOf(n: FigmaNode): DesignNode['radius'] {
@@ -150,6 +186,13 @@ function aliasIds(value: unknown): string[] {
   return Object.values(rec).flatMap(aliasIds);
 }
 
+const TEXT_CASE: Readonly<Record<string, TextContent['textCase']>> = { UPPER: 'upper', LOWER: 'lower', TITLE: 'title' };
+const TEXT_ALIGN: Readonly<Record<string, TextContent['align']>> = { CENTER: 'center', RIGHT: 'right', JUSTIFIED: 'justify' };
+
+function pick<K extends string, V>(key: K, value: V | undefined): Partial<Record<K, V>> {
+  return value === undefined ? {} : ({ [key]: value } as Record<K, V>);
+}
+
 function textOf(n: FigmaNode): TextContent | undefined {
   if (n.type !== 'TEXT' || n.characters === undefined) return undefined;
   const s = n.style ?? {};
@@ -161,6 +204,8 @@ function textOf(n: FigmaNode): TextContent | undefined {
     ...(s.lineHeightPx ? { lineHeightPx: round(s.lineHeightPx) } : {}),
     ...(s.letterSpacing ? { letterSpacingPx: round(s.letterSpacing) } : {}),
     mixed: (n.characterStyleOverrides ?? []).some((o) => o !== 0),
+    ...pick('textCase', TEXT_CASE[s.textCase ?? '']),
+    ...pick('align', TEXT_ALIGN[s.textAlignHorizontal ?? '']),
   };
 }
 

@@ -1,5 +1,5 @@
 import type { FigmaNode } from './figma-json.ts';
-import type { FrameRef, ItemKind, SkippedItem } from './types.ts';
+import type { CanvasBox, FrameRef, ItemKind, SkippedItem } from './types.ts';
 
 /** A project-specific rule: items or sections whose type (if given) and name match are skipped with the reason given. */
 export interface SkipRule {
@@ -95,12 +95,26 @@ function visit(n: FigmaNode, sections: readonly string[], out: Outline, rules: R
     out.skipped.push(skippedOf(n, `not a frame (${n.type.toLowerCase()})`, sections));
     return;
   }
-  const box = n.absoluteBoundingBox;
-  out.items.push({ id: n.id, name: n.name, kind, sections, w: Math.round(box?.width ?? 0), h: Math.round(box?.height ?? 0) });
+  const canvas = canvasOf(n);
+  out.items.push({ id: n.id, name: n.name, kind, sections, w: canvas?.w ?? 0, h: canvas?.h ?? 0, ...(canvas ? { canvas } : {}) });
 }
 
 function skippedOf(n: FigmaNode, reason: string, sections: readonly string[]): SkippedItem {
-  return { id: n.id, name: n.name, type: n.type, reason, sections };
+  const canvas = canvasOf(n);
+  const text = textOf(n);
+  return { id: n.id, name: n.name, type: n.type, reason, sections, ...(canvas ? { canvas } : {}), ...(text ? { text } : {}) };
+}
+
+function canvasOf(n: FigmaNode): CanvasBox | undefined {
+  const b = n.absoluteBoundingBox;
+  return b ? { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height) } : undefined;
+}
+
+/** The words of a note or a text-only label. */
+function textOf(n: FigmaNode): string | undefined {
+  if (n.type === 'TEXT') return n.characters?.trim() || undefined;
+  const texts = (n.children ?? []).flatMap((c) => (c.type === 'TEXT' && c.characters ? [c.characters.trim()] : []));
+  return texts.length > 0 ? texts.join(' ') : undefined;
 }
 
 function visibleFills(n: FigmaNode): number {

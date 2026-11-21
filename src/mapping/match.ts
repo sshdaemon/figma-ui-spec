@@ -21,6 +21,8 @@ export interface Match {
   /** What to write in code: a utility class, classes, or a component and variant. */
   readonly code: string;
   readonly note?: string;
+  /** On `differs`: the token that has the design's value, when one does. */
+  readonly sameValue?: string;
 }
 
 const PX_TOLERANCE = 0.05;
@@ -63,6 +65,18 @@ export class ColorMatcher {
     return this.matchOpaque(rgba, styleName);
   }
 
+  /** Tokens with exactly this colour; a translucent colour also gets its opaque tokens with an opacity suffix. */
+  candidates(hex: string): { key: string; token: Token }[] {
+    const rgba = parseColor(hex);
+    if (!rgba) return [];
+    const exact = this.tokens.filter((t) => sameColor(t.rgba, rgba)).map((t) => ({ key: t.token.key, token: t.token }));
+    if (exact.length > 0 || rgba.a === 1) return exact;
+    const percent = Math.round(rgba.a * 100);
+    return this.tokens
+      .filter((t) => sameColor(t.rgba, { ...rgba, a: 1 }))
+      .map((t) => ({ key: `${t.token.key}/${percent}`, token: t.token }));
+  }
+
   private matchOpaque(rgba: Rgba, styleName: string | undefined): Match {
     const hex = toHexString(rgba);
     const sameValue = this.tokens.filter((t) => sameColor(t.rgba, rgba)).map((t) => t.token);
@@ -101,6 +115,14 @@ function names(tokens: readonly Token[]): string {
   return tokens.map((t) => t.key).join(', ');
 }
 
+/** Classes for a text: from tokens, with the parts no token gives filled in two ways, by the nearest token and by the exact value. */
+export interface Recipe {
+  readonly classes: string[];
+  readonly missing: string[];
+  readonly nearest: string[];
+  readonly exact: string[];
+}
+
 export class TextMatcher {
   private readonly variants: readonly TypographyVariant[];
   private readonly tokens: readonly Token[];
@@ -126,36 +148,65 @@ export class TextMatcher {
   }
 
   /** Utility classes for the text, from theme tokens only; parts no token gives are listed as missing. */
-  recipe(v: TextValue): { classes: string[]; missing: string[] } {
-    const classes: string[] = [];
-    const missing: string[] = [];
-    const pick = (cls: string | undefined, label: string): void => {
-      if (cls) classes.push(cls);
-      else missing.push(label);
+  recipe(v: TextValue): Recipe {
+    const out: Recipe = { classes: [], missing: [], nearest: [], exact: [] };
+    const pick = (cls: string | undefined, label: string, nearest: string | undefined, exact: string): void => {
+      if (cls) {
+        out.classes.push(cls);
+        out.nearest.push(cls);
+        out.exact.push(cls);
+        return;
+      }
+      out.missing.push(label);
+      if (nearest) out.nearest.push(nearest);
+      out.exact.push(exact);
     };
-    pick(
-      this.find('font', (t) => firstFamily(t.value) === v.family.toLowerCase(), 'font'),
-      `family ${v.family}`,
-    );
+    const family = this.find('font', (t) => firstFamily(t.value) === v.family.toLowerCase(), 'font');
+    pick(family, `family ${v.family}`, undefined, `font-['${v.family.replace(/\s+/g, '_')}']`);
     const size = this.tokens.find((t) => t.kind === 'text' && t.px !== undefined && Math.abs(t.px - v.sizePx) <= PX_TOLERANCE);
-    pick(size ? `text-${size.key}` : undefined, `size ${v.sizePx}px`);
     pick(
-      this.find('font-weight', (t) => Number(t.value) === v.weight, 'font'),
+      size ? `text-${size.key}` : undefined,
+      `size ${v.sizePx}px`,
+      this.closest('text', 'text', (t) => t.px, v.sizePx),
+      `text-[${v.sizePx}px]`,
+    );
+    const weight = this.find('font-weight', (t) => Number(t.value) === v.weight, 'font');
+    pick(
+      weight,
       `weight ${v.weight}`,
+      this.closest('font-weight', 'font', (t) => Number(t.value), v.weight),
+      `font-[${v.weight}]`,
     );
     const leading = this.leadingClass(v, size);
-    if (leading !== null) pick(leading, `line height ${v.lineHeightPx}px`);
-    if (Math.abs(v.letterSpacingPx) > PX_TOLERANCE) {
+    if (leading !== null) {
+      const ratio = v.lineHeightPx / v.sizePx;
       pick(
-        this.find(
-          'tracking',
-          (t) => trackingPx(t, v.sizePx) !== undefined && Math.abs((trackingPx(t, v.sizePx) ?? 0) - v.letterSpacingPx) <= PX_TOLERANCE,
-          'tracking',
-        ),
-        `letter spacing ${v.letterSpacingPx}px`,
+        leading,
+        `line height ${v.lineHeightPx}px`,
+        this.closest('leading', 'leading', (t) => toRatio(t.value), ratio),
+        `leading-[${v.lineHeightPx}px]`,
       );
     }
-    return { classes, missing };
+    if (Math.abs(v.letterSpacingPx) > PX_TOLERANCE) {
+      const tracking = this.find(
+        'tracking',
+        (t) => Math.abs((trackingPx(t, v.sizePx) ?? Number.NaN) - v.letterSpacingPx) <= PX_TOLERANCE,
+        'tracking',
+      );
+      const near = this.closest('tracking', 'tracking', (t) => trackingPx(t, v.sizePx), v.letterSpacingPx);
+      pick(tracking, `letter spacing ${v.letterSpacingPx}px`, near, `tracking-[${v.letterSpacingPx}px]`);
+    }
+    return out;
+  }
+
+  /** The token of a kind whose number is closest to `target`, as a class. */
+  private closest(kind: Token['kind'], prefix: string, value: (t: Token) => number | undefined, target: number): string | undefined {
+    const scored = this.tokens.flatMap((t) => {
+      const n = t.kind === kind ? value(t) : undefined;
+      return n === undefined || Number.isNaN(n) ? [] : [{ t, d: Math.abs(n - target) }];
+    });
+    const best = scored.toSorted((a, b) => a.d - b.d)[0];
+    return best ? `${prefix}-${best.t.key}` : undefined;
   }
 
   /** A leading class, `null` when the size's own line height already gives it, undefined when no token does. */
@@ -175,6 +226,20 @@ export class TextMatcher {
   private find(kind: Token['kind'], test: (t: Token) => boolean, prefix: string): string | undefined {
     const t = this.tokens.find((x) => x.kind === kind && test(x));
     return t ? `${prefix}-${t.key}` : undefined;
+  }
+
+  /** The closest variant with the same family and size, which is what a text conflict offers as nearest. */
+  sameFace(v: TextValue): { name: string; differences: string[] } | undefined {
+    const candidates = this.variants
+      .map((variant) => ({ name: variantName(variant), differences: differences(v, variant) }))
+      .filter((c) => !c.differences.some((d) => d.startsWith('family') || d.startsWith('size')));
+    return candidates.toSorted((a, b) => a.differences.length - b.differences.length)[0];
+  }
+
+  /** The closest component variant and how it differs, for deciding whether a near match is worth a conflict. */
+  nearest(v: TextValue): { variant: TypographyVariant; name: string; differences: string[] } | undefined {
+    const variant = this.nearestVariant(v);
+    return variant ? { variant, name: variantName(variant), differences: differences(v, variant) } : undefined;
   }
 
   private nearestVariant(v: TextValue): TypographyVariant | undefined {
@@ -247,6 +312,7 @@ export class ShadowMatcher {
         status: 'differs',
         code: `shadow-${sameValue?.token.key ?? key}`,
         note: `code ${named.token.value} vs design ${describeShadows(shadows)}${alt}`,
+        ...(sameValue ? { sameValue: `shadow-${sameValue.token.key}` } : {}),
       };
     }
     if (sameValue) return { status: 'renamed', code: `shadow-${sameValue.token.key}` };

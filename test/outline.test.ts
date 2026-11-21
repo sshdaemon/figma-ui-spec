@@ -39,7 +39,7 @@ test('a project rule can skip a whole section', () => {
   assert.ok(!items.some((i) => i.id === '2:12' || i.id === '2:15'));
   assert.deepEqual(
     skipped.find((s) => s.id === '1:2'),
-    { id: '1:2', name: 'Icons', type: 'SECTION', reason: 'graphics', sections: ['Final'] },
+    { id: '1:2', name: 'Icons', type: 'SECTION', reason: 'graphics', sections: ['Final'], canvas: { x: 0, y: 0, w: 100, h: 100 } },
   );
 });
 

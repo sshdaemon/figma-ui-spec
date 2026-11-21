@@ -185,9 +185,5 @@ test('font stacks and length line heights match like bare names and ratios', () 
   const m = new TextMatcher(stackVariants, stackTokens);
   const v = { family: 'Inter', sizePx: 20, weight: 700, lineHeightPx: 30, letterSpacingPx: 0 };
   assert.deepEqual(m.match(v), { status: 'same', code: 'Heading level=4' });
-  assert.deepEqual(
-    m.recipe(v),
-    { classes: ['font-inter', 'text-h4', 'font-bold'], missing: [] },
-    'the rem line height of text-h4 needs no leading class',
-  );
+  assert.deepEqual(m.recipe(v).classes, ['font-inter', 'text-h4', 'font-bold'], 'the rem line height of text-h4 needs no leading class');
 });

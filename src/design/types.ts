@@ -30,9 +30,17 @@ export interface Shadow {
   readonly hex: string;
 }
 
+/** How a node sizes along one axis inside auto layout. */
+export type Sizing = 'fixed' | 'hug' | 'fill';
+
 export interface Layout {
-  readonly direction: 'row' | 'column';
+  readonly direction: 'row' | 'column' | 'grid';
+  /** Gap along the main axis; for a grid, between columns. */
   readonly gap: number;
+  /** Grid only. */
+  readonly columns?: number;
+  readonly rows?: number;
+  readonly rowGap?: number;
   /** Top, right, bottom, left. */
   readonly padding: readonly [number, number, number, number];
   readonly wrap: boolean;
@@ -49,6 +57,8 @@ export interface TextContent {
   readonly letterSpacingPx?: number;
   /** Parts of the text use other styles than the one given. */
   readonly mixed: boolean;
+  readonly textCase?: 'upper' | 'lower' | 'title';
+  readonly align?: 'center' | 'right' | 'justify';
 }
 
 export interface ComponentUse {
@@ -77,9 +87,17 @@ export interface DesignNode {
   readonly type: string;
   readonly box: Box;
   readonly layout?: Layout;
+  /** Cells a grid child spans, when more than one. */
+  readonly span?: { readonly columns: number; readonly rows: number };
+  /** Placed by coordinates inside an auto-layout parent instead of flowing with its siblings. */
+  readonly absolute?: true;
+  /** Width and height sizing inside the parent's auto layout, when Figma gives it. */
+  readonly sizing?: { readonly w: Sizing; readonly h: Sizing };
   readonly fills?: readonly Paint[];
   readonly strokes?: readonly Paint[];
   readonly strokeWeight?: number;
+  /** Per-side stroke weights (top, right, bottom, left) when the sides differ. */
+  readonly strokeSides?: readonly [number, number, number, number];
   /** One radius, or top-left, top-right, bottom-right, bottom-left. */
   readonly radius?: number | readonly [number, number, number, number];
   readonly shadows?: readonly Shadow[];
@@ -95,6 +113,14 @@ export interface DesignNode {
 /** What a design item under the root is. */
 export type ItemKind = 'frame' | 'component';
 
+/** A position on the canvas, for telling which label belongs to which frame. */
+export interface CanvasBox {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+}
+
 export interface FrameRef {
   readonly id: string;
   readonly name: string;
@@ -103,6 +129,7 @@ export interface FrameRef {
   readonly sections: readonly string[];
   readonly w: number;
   readonly h: number;
+  readonly canvas?: CanvasBox;
 }
 
 export interface SkippedItem {
@@ -111,6 +138,9 @@ export interface SkippedItem {
   readonly type: string;
   readonly reason: string;
   readonly sections: readonly string[];
+  readonly canvas?: CanvasBox;
+  /** What a label or note says. */
+  readonly text?: string;
 }
 
 export interface DesignComment {
