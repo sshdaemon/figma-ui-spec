@@ -9,7 +9,7 @@ import { indexTokens } from '../src/catalogue/typography.ts';
 import { typographyVariants } from '../src/catalogue/variants.ts';
 import type { Catalogue } from '../src/catalogue/types.ts';
 import { appendGaps } from '../src/cli/config.ts';
-import type { DesignNode, DesignSnapshot, FrameRef, SkippedItem } from '../src/design/types.ts';
+import type { CanvasBox, DesignNode, DesignSnapshot, FrameRef, SkippedItem } from '../src/design/types.ts';
 import { matchComponents } from '../src/mapping/components.ts';
 import { ColorMatcher, ShadowMatcher, TextMatcher } from '../src/mapping/match.ts';
 import { buildTable } from '../src/mapping/table.ts';
@@ -809,6 +809,86 @@ test('a Final section inside an iteration: siblings there are not asked about, a
     ),
   );
   assert.ok(!spec.questions.some((q) => q.includes('"Option A" sits beside')), spec.questions.join('\n'));
+});
+
+const at = (id: string, name: string, x: number, w: number): FrameRef => ({
+  ...frame(id, name, x, 0),
+  w,
+  canvas: { x, y: 0, w, h: 300 },
+});
+
+function questionsFor(items: FrameRef[], skipped: SkippedItem[]): string[] {
+  const snapshot: DesignSnapshot = {
+    file: { fileKey: 'Key', name: 'Checkout', version: '1', lastModified: '' },
+    root: { id: '0:1', name: 'Board', type: 'CANVAS' },
+    items,
+    skipped,
+    frames: Object.fromEntries(items.map((f) => [f.id, page(f.id, 'Basket')])),
+    hiddenNodes: 0,
+    comments: [],
+  };
+  const usage = collectUsage(snapshot);
+  const table = buildTable(usage, catalogue, matchComponents(usage.components, [], [], { lucide: new Set(), local: [] }));
+  return [...buildSpec({ repo: 'web', snapshot, catalogue, table, map: [], generated: '2026-01-01' }).questions];
+}
+
+const about = (questions: readonly string[], id: string): string[] => questions.filter((q) => q.includes(` ${id} `));
+const earlier = (id: string, w: number): FrameRef => ({ ...at(id, 'Modal', 9000, w), sections: ['Popup iterations'] });
+
+test('a design state sized like frames that are not built, unlike its flow, gets one question with every reason', () => {
+  const labels = [label('l1', 'LIVE SCREEN', 2800, -100), label('l2', 'PROMO', 3700, -100), label('l3', 'MOBILE', 4600, -100)];
+  const board = (p2: number, extra: FrameRef[] = []) =>
+    questionsFor(
+      [
+        at('p1', 'Page', 0, 1280),
+        at('p2', 'Page', 1400, p2),
+        at('r1', 'Dialog', 2800, 820),
+        at('d1', 'Dialog', 3700, 820),
+        at('m1', 'Phone', 4600, 393),
+        ...extra,
+      ],
+      labels,
+    );
+  assert.deepEqual(about(board(1282), 'd1'), [
+    'Final / LIVE SCREEN: d1 "Dialog" (PROMO) has the name of a reference frame and is 820px wide like frames that are not built (r1), unlike the flow\'s other states (393, 1280, 1282). Is it a new design, today\'s UI or an earlier iteration?',
+  ]);
+  assert.deepEqual(about(board(1282), 'm1'), [], 'an odd size matching nothing that is not built asks nothing');
+  assert.deepEqual(
+    about(board(1283), 'd1').map((q) => q.includes('wide like')),
+    [false],
+    'widths 3px apart are not alike, so no two other states share a width: only the name reason is left',
+  );
+  assert.deepEqual(
+    about(board(1282, [at('d2', 'Page', 5500, 821)]), 'd1').map((q) => q.includes('wide like')),
+    [false],
+    'another design state within 2px has its width',
+  );
+});
+
+test('the size reason also matches superseded frames, skips a desktop and mobile pair, and joins a name reason', () => {
+  const bySize = questionsFor(
+    [at('p1', 'Page', 0, 1280), at('p2', 'Page', 1400, 1280), at('d1', 'Popup', 2800, 820), earlier('e1', 820)],
+    [],
+  );
+  assert.deepEqual(about(bySize, 'd1'), [
+    'Final / Page: d1 "Popup" is 820px wide like frames that are not built (e1), unlike the flow\'s other states (1280). Is it a new design, today\'s UI or an earlier iteration?',
+  ]);
+
+  const pair = questionsFor(
+    [at('dd', 'Page', 0, 1280), at('mm', 'Phone', 1400, 393), at('rd', 'Page today', 0, 1280), at('rm', 'Phone today', 1400, 393)].map(
+      (f, i) => (i < 2 ? f : { ...f, canvas: { ...(f.canvas as CanvasBox), y: 800 } }),
+    ),
+    [label('cur1', 'CURRENT', 0, 700), label('cur2', 'CURRENT', 1400, 700)],
+  );
+  assert.deepEqual([...about(pair, 'dd'), ...about(pair, 'mm')], [], 'one desktop and one mobile state are not a rest of the flow');
+
+  const named = questionsFor(
+    [at('p1', 'Page', 0, 1280), at('p2', 'Page', 1400, 1280), at('o1', 'Old popup', 2800, 820), earlier('e1', 820)],
+    [],
+  );
+  assert.deepEqual(about(named, 'o1'), [
+    "Final / Page: o1 \"Old popup\" is named like today's UI but no label says so and is 820px wide like frames that are not built (e1), unlike the flow's other states (1280). Is it a new design, today's UI or an earlier iteration?",
+  ]);
 });
 
 test('TextMatcher.adjustments gives the classes a variant needs to show a text, and nothing for a name it lacks', () => {

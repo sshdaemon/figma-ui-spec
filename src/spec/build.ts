@@ -114,11 +114,12 @@ function usedComponents(trees: readonly SpecNode[]): Set<string> {
 
 /** Missing usual states (asked once per flow that shows text), and frames whose role is unclear. */
 function stateQuestions(flows: readonly Flow[], screens: readonly SpecScreen[]): string[] {
+  const notBuilt = flows.flatMap((f) => f.states.filter((s) => s.role !== 'design'));
   return flows.flatMap((flow, i) => {
     const design = flow.states.filter((s) => s.role === 'design');
     if (design.length === 0) return [];
     const showsText = screens[i]?.states.some((s) => s.tree && hasText(s.tree)) ?? false;
-    return [...(showsText ? missingStates(flow) : []), ...roleQuestions(flow, design)];
+    return [...(showsText ? missingStates(flow) : []), ...roleQuestions(flow, design, notBuilt)];
   });
 }
 
@@ -128,16 +129,45 @@ function missingStates(flow: Flow): string[] {
   return missing.length > 0 ? [`${flow.name}: the design has no ${joinOr(missing)} state. What should each show?`] : [];
 }
 
-function roleQuestions(flow: Flow, design: readonly Flow['states'][number][]): string[] {
+type State = Flow['states'][number];
+
+/** Widths within this many pixels count as the same frame size. */
+const SAME_WIDTH_PX = 2;
+
+/**
+ * Design states that may not be meant to be built: named like today's UI, named like a reference frame of the flow, or
+ * the odd size out in their flow while sized like frames that are not built (a modal left over from an earlier
+ * iteration, say). The reasons a state has go into one question.
+ */
+function roleQuestions(flow: Flow, design: readonly State[], notBuilt: readonly State[]): string[] {
   const referenceNames = new Set(flow.states.filter((s) => s.role === 'reference').map((s) => s.frame.name));
   return design.flatMap((s) => {
-    const id = `${flow.name}: ${s.frame.id} "${s.frame.name}"`;
-    if (s.nameLooksLikeReference) return [`${id} is named like today's UI but no label says so. Is it a reference?`];
-    if (referenceNames.has(s.frame.name)) {
-      return [`${id}${s.label ? ` (${s.label})` : ''} has the name of a reference frame. Is it a new design or today's UI?`];
-    }
-    return [];
+    const id = `${flow.name}: ${s.frame.id} "${s.frame.name}"${s.label ? ` (${s.label})` : ''}`;
+    const reasons = [
+      ...(s.nameLooksLikeReference ? ["is named like today's UI but no label says so"] : []),
+      ...(referenceNames.has(s.frame.name) ? ['has the name of a reference frame'] : []),
+      ...oddSize(s, design, notBuilt),
+    ];
+    return reasons.length > 0 ? [`${id} ${reasons.join(' and ')}. Is it a new design, today's UI or an earlier iteration?`] : [];
   });
+}
+
+function near(a: number, b: number): boolean {
+  return Math.abs(a - b) <= SAME_WIDTH_PX;
+}
+
+/**
+ * Why a state's width stands out: no other design state of its flow has it, at least two others share a width (so a
+ * desktop and mobile pair is not a "rest of the flow"), and frames that are not built have its width.
+ */
+function oddSize(s: State, design: readonly State[], notBuilt: readonly State[]): string[] {
+  const others = design.filter((o) => o !== s);
+  if (others.some((o) => near(o.frame.w, s.frame.w))) return [];
+  if (!others.some((o) => others.filter((p) => near(p.frame.w, o.frame.w)).length >= 2)) return [];
+  const alike = notBuilt.filter((o) => near(o.frame.w, s.frame.w)).map((o) => o.frame.id);
+  if (alike.length === 0) return [];
+  const widths = [...new Set(others.map((o) => o.frame.w))].toSorted((a, b) => a - b).join(', ');
+  return [`is ${s.frame.w}px wide like frames that are not built (${alike.join(', ')}), unlike the flow's other states (${widths})`];
 }
 
 /**
