@@ -55,8 +55,11 @@ export interface ComponentDefinition {
   readonly tree: SpecNode;
 }
 
-/** `reference` frames show today's UI for comparison and are not built. */
-export type StateRole = 'design' | 'reference';
+/**
+ * `reference` frames show today's UI for comparison; `superseded` frames belong to an earlier iteration of the design.
+ * Neither is built.
+ */
+export type StateRole = 'design' | 'reference' | 'superseded';
 
 export interface SpecState {
   readonly frameId: string;

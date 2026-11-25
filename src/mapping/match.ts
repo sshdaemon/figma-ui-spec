@@ -209,6 +209,31 @@ export class TextMatcher {
     return best ? `${prefix}-${best.t.key}` : undefined;
   }
 
+  /**
+   * The classes to add to a variant so it shows this text: one for each of weight, line height and letter spacing that
+   * differs, from a token when one fits, else the exact value. Undefined when no variant has that name.
+   */
+  adjustments(v: TextValue, name: string): string[] | undefined {
+    const variant = this.variants.find((x) => variantName(x) === name);
+    if (!variant) return undefined;
+    const s = variant.style;
+    const out: string[] = [];
+    if (s.weight !== v.weight) out.push(this.find('font-weight', (t) => Number(t.value) === v.weight, 'font') ?? `font-[${v.weight}]`);
+    if (s.lineHeightPx === undefined || Math.abs(s.lineHeightPx - v.lineHeightPx) > PX_TOLERANCE) out.push(this.leadingFor(v));
+    if (Math.abs((s.letterSpacingPx ?? 0) - v.letterSpacingPx) > PX_TOLERANCE) out.push(this.trackingFor(v));
+    return out;
+  }
+
+  /** Without a size token, so the size's own line height never stands in: the variant's leading class would win over it. */
+  private leadingFor(v: TextValue): string {
+    return this.leadingClass(v, undefined) || `leading-[${v.lineHeightPx}px]`;
+  }
+
+  private trackingFor(v: TextValue): string {
+    const fits = (t: Token): boolean => Math.abs((trackingPx(t, v.sizePx) ?? Number.NaN) - v.letterSpacingPx) <= PX_TOLERANCE;
+    return this.find('tracking', fits, 'tracking') ?? `tracking-[${v.letterSpacingPx}px]`;
+  }
+
   /** A leading class, `null` when the size's own line height already gives it, undefined when no token does. */
   private leadingClass(v: TextValue, size: Token | undefined): string | null | undefined {
     const companion = size ? this.tokens.find((t) => t.kind === 'text-line-height' && t.key === size.key) : undefined;

@@ -158,7 +158,9 @@ function typography(ctx: TreeContext, v: TextValue, style: string | undefined, n
   const near = ctx.text.sameFace(v);
   if (!near && m.status === 'classes') return { classes: recipe.classes };
   const nearest = near ? near.name : recipe.nearest.join(' ');
-  const exact = recipe.exact.join(' ');
+  // A variant plus the classes that differ keeps the component, which is how such a text gets built.
+  const adjusted = near ? ctx.text.adjustments(v, near.name) : undefined;
+  const exact = adjusted && adjusted.length > 0 ? `${near?.name} ${adjusted.join(' ')}` : recipe.exact.join(' ');
   const chosen = nc.resolve({
     kind: 'text',
     key: `text:${describeText(v)}`,
@@ -167,7 +169,10 @@ function typography(ctx: TreeContext, v: TextValue, style: string | undefined, n
     ...(exact === nearest ? {} : { override: exact }),
     ...noteOf(m.note, m.status === 'missing' ? [] : recipe.missing),
   });
-  return chosen === near?.name ? { code: chosen, classes: [] } : { classes: chosen.split(' ').filter(Boolean) };
+  if (near && (chosen === near.name || chosen.startsWith(`${near.name} `))) {
+    return { code: near.name, classes: chosen.slice(near.name.length).split(' ').filter(Boolean) };
+  }
+  return { classes: chosen.split(' ').filter(Boolean) };
 }
 
 function noteOf(note: string | undefined, missing: readonly string[]): { note?: string } {

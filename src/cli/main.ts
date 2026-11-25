@@ -39,10 +39,10 @@ Commands
 
 Options
   --repo <name>       project config to use, from .repos/<name>/config.json (design: optional, for skip rules)
-  --root <dir>        catalogue, table, map: project checkout, instead of the config's root (for a worktree)
-  --figma <url>       design, table: link to a page, section or frame (with node-id)
-  --frames <a,b>      design, table: read only these frame ids in full
-  --no-cache          design, table: ignore and do not write .cache/
+  --root <dir>        catalogue, table, spec, map, guard: project checkout, instead of the config's root (for a worktree)
+  --figma <url>       design, table, spec: link to a page, section or frame (with node-id)
+  --frames <a,b>      design, table, spec: read only these frame ids in full
+  --no-cache          design, table, spec: ignore and do not write .cache/
   --key <key>         map: the Figma component's library key, from the table
   --to <file#Export>  map: repo-relative file and export, or lucide-react#Icon
   --out <dir>         spec: where to write the spec (an existing spec there keeps its conflict ids and decisions)

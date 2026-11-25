@@ -17,6 +17,17 @@ export interface Flow {
 }
 
 export const DEFAULT_REFERENCE = /\b(current|old|existing|before|live)\b/i;
+/** A section named like this holds an earlier iteration of the design, not states to build. */
+const ITERATION = /\b(iterac?tions?|explorations?|drafts?|wip|archived?)\b/i;
+/** A section named only by a version tag, `v2`; a version inside a longer name (`Orders v2`) can be the redesign. */
+const VERSION_ONLY = /^\s*v\d+\s*$/i;
+/** A section named like this holds the designs that ship. */
+export const FINAL = /\bfinal\b/i;
+
+/** Whether a section's name reads as an earlier iteration; a section named final never does. */
+export function isIteration(section: string): boolean {
+  return !FINAL.test(section) && (ITERATION.test(section) || VERSION_ONLY.test(section));
+}
 
 /** A line at least this long splits a section into flows, one band each. */
 const DIVIDER_MIN_PX = 2000;
@@ -31,7 +42,28 @@ const LABEL_GAP_PX = 250;
 export function groupFlows(items: readonly FrameRef[], skipped: readonly SkippedItem[], reference: RegExp = DEFAULT_REFERENCE): Flow[] {
   const frames = items.filter((i) => i.kind === 'frame');
   const bySection = groupBy(frames, (f) => f.sections.join('\u0000'));
-  return [...bySection.values()].flatMap((group) => flowsOfSection(group, skipped, reference));
+  return [...bySection.values()].flatMap((group) => flowsOfSection(group, skipped, reference)).map(supersede);
+}
+
+/**
+ * The section that makes a flow an earlier iteration: of its sections named final or like an iteration, the deepest
+ * decides, so `Final screens / Iterations` is an iteration and `Explorations / Final` is not. Any depth counts, since a
+ * link to a section makes that section the top one.
+ */
+export function iterationOf(sections: readonly string[]): string | undefined {
+  const decisive = sections.findLast((s) => FINAL.test(s) || isIteration(s));
+  return decisive !== undefined && isIteration(decisive) ? decisive : undefined;
+}
+
+/** Every design state of a flow inside an earlier iteration becomes `superseded`. */
+function supersede(flow: Flow): Flow {
+  if (!iterationOf(flow.sections)) return flow;
+  return {
+    ...flow,
+    states: flow.states.map((s) =>
+      s.role === 'design' ? { frame: s.frame, role: 'superseded', ...(s.label ? { label: s.label } : {}) } : s,
+    ),
+  };
 }
 
 function flowsOfSection(frames: readonly FrameRef[], skipped: readonly SkippedItem[], reference: RegExp): Flow[] {

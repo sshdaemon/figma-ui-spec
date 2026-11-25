@@ -16,7 +16,7 @@ import { buildTable } from '../src/mapping/table.ts';
 import { collectUsage } from '../src/mapping/usage.ts';
 import { buildSpec } from '../src/spec/build.ts';
 import { ConflictRegistry } from '../src/spec/conflicts.ts';
-import { groupFlows } from '../src/spec/flows.ts';
+import { groupFlows, isIteration, iterationOf } from '../src/spec/flows.ts';
 import { renderSpec } from '../src/spec/render.ts';
 import { buildTree, type TreeContext } from '../src/spec/tree.ts';
 
@@ -183,18 +183,19 @@ test('buildTree turns a frame into markup, typography, components and icons, wit
   const [k] = ctx.conflicts.list();
   assert.deepEqual(
     [k?.id, k?.kind, k?.nearest, k?.override, k?.outcome],
-    ['K1', 'text', 'Heading level=6', 'font-display text-h6 font-bold leading-normal', 'nearest'],
+    ['K1', 'text', 'Heading level=6', 'Heading level=6 leading-normal', 'nearest'],
+    'the override keeps the variant and adds only the class that differs',
   );
 });
 
-test('decisions carry over by key: a local override switches the tree to the exact classes', () => {
+test('decisions carry over by key: a local override keeps the variant and adds the differing classes', () => {
   const first = new ConflictRegistry();
   buildTree(context(first), drawer);
   const decided = first.list().map((c) => ({ ...c, outcome: 'local-override' as const, decidedBy: 'Sam', decided: '2026-01-02' }));
   const again = new ConflictRegistry(decided);
   const tree = buildTree(context(again), drawer);
-  assert.deepEqual(tree.children?.[1]?.classes, ['font-display', 'text-h6', 'font-bold', 'leading-normal', 'text-fg']);
-  assert.equal(tree.children?.[1]?.code, undefined);
+  assert.deepEqual(tree.children?.[1]?.classes, ['leading-normal', 'text-fg']);
+  assert.equal(tree.children?.[1]?.code, 'Heading level=6');
   assert.deepEqual(
     again.list().map((c) => [c.id, c.outcome, c.decidedBy]),
     [['K1', 'local-override', 'Sam']],
@@ -681,4 +682,142 @@ test('review fixes, round 5: grids, and placed boxes that place their own childr
   const tab = buildTree(ctx, nested).children?.[0];
   assert.deepEqual(tab?.classes.slice(0, 2), ['absolute', 'top-0.5'], 'absolute, never also relative');
   assert.ok(!tab?.classes.includes('relative'));
+});
+
+const page = (id: string, heading: string): DesignNode => ({
+  id,
+  name: 'Page',
+  type: 'FRAME',
+  box: box(1280, 900),
+  children: [text(`${id}-h`, heading, 30)],
+});
+const item = (id: string, name: string, section: string): FrameRef => ({ id, name, kind: 'frame', sections: [section], w: 1280, h: 900 });
+
+test('first-run fixes: earlier iterations, sections beside the final one, headings that differ within a flow', () => {
+  const snapshot: DesignSnapshot = {
+    file: { fileKey: 'Key', name: 'Checkout', version: '1', lastModified: '' },
+    root: { id: '0:1', name: 'Board', type: 'CANVAS' },
+    items: [
+      item('m1', 'Modal', 'Popup iterations'),
+      item('s1', 'Sketch', 'Sketches'),
+      item('f1', 'Page', 'Final screens'),
+      item('f2', 'Page', 'Final screens'),
+      item('o1', 'Other', 'Final screens'),
+    ],
+    skipped: [],
+    frames: {
+      m1: page('m1', 'Old modal'),
+      s1: page('s1', 'Sketch'),
+      f1: page('f1', 'Export order data'),
+      f2: page('f2', 'Export refund data'),
+      o1: page('o1', 'Export refund data'),
+    },
+    hiddenNodes: 0,
+    comments: [],
+  };
+  const usage = collectUsage(snapshot);
+  const table = buildTable(usage, catalogue, matchComponents(usage.components, [], [], { lucide: new Set(), local: [] }));
+  const spec = buildSpec({ repo: 'web', snapshot, catalogue, table, map: [], generated: '2026-01-01' });
+  const iteration = spec.screens.find((s) => s.name === 'Popup iterations / Modal');
+  assert.deepEqual(
+    iteration?.states.map((s) => [s.role, s.tree === undefined]),
+    [['superseded', true]],
+    'an iteration section is not built',
+  );
+  assert.match(renderSpec(spec), /Earlier iteration: the final designs replace it\. Not built\./);
+  assert.ok(
+    spec.questions.includes(
+      'Section "Sketches" sits beside "Final screens". Its frames are specced as states to build: is it an earlier iteration instead?',
+    ),
+  );
+  assert.ok(!spec.questions.some((q) => q.startsWith('Popup iterations')), 'a superseded flow asks nothing about its states');
+  assert.ok(spec.questions.includes('Section "Popup iterations" is read as an earlier iteration, so its frames are not built. Right?'));
+  assert.ok(
+    spec.questions.includes(
+      'Final screens / Page: its states show different headings: "Export order data" (f1), "Export refund data" (f2; also in Final screens / Other). Which is right for each?',
+    ),
+    spec.questions.join('\n'),
+  );
+});
+
+test('isIteration: iteration words and a bare version tag, never a final section or a versioned redesign', () => {
+  assert.deepEqual(
+    ['Popup Iterations', 'Explorations', 'v2', 'Final v2', 'Final screens (draft)', 'Orders v2', 'Final screens'].map(isIteration),
+    [true, true, true, false, false, false, false],
+  );
+});
+
+test('iterationOf looks at every section level, and the deepest final or iteration name decides', () => {
+  assert.equal(iterationOf(['Order History', 'Popup iterations']), 'Popup iterations', 'a link to a wrapping section');
+  assert.equal(iterationOf(['Final screens', 'Iterations']), 'Iterations');
+  assert.equal(iterationOf(['Explorations', 'Final']), undefined);
+  assert.equal(iterationOf(['Order History', 'Final screens']), undefined);
+});
+
+const nested = (id: string, name: string, section: string): FrameRef => ({
+  ...item(id, name, section),
+  sections: ['Order History', section],
+});
+
+test('a board linked through a wrapping section still supersedes its iteration and asks about unclear siblings', () => {
+  const snapshot: DesignSnapshot = {
+    file: { fileKey: 'Key', name: 'Checkout', version: '1', lastModified: '' },
+    root: { id: '0:2', name: 'Order History', type: 'SECTION' },
+    items: [nested('m1', 'Modal', 'Popup iterations'), nested('s1', 'Sketch', 'Sketches'), nested('f1', 'Page', 'Final screens')],
+    skipped: [],
+    frames: { m1: page('m1', 'Old'), s1: page('s1', 'Sketch'), f1: page('f1', 'Export order data') },
+    hiddenNodes: 0,
+    comments: [],
+  };
+  const usage = collectUsage(snapshot);
+  const table = buildTable(usage, catalogue, matchComponents(usage.components, [], [], { lucide: new Set(), local: [] }));
+  const spec = buildSpec({ repo: 'web', snapshot, catalogue, table, map: [], generated: '2026-01-01' });
+  assert.equal(spec.screens.find((s) => s.name.includes('Popup iterations'))?.states[0]?.role, 'superseded');
+  assert.ok(spec.questions.includes('Section "Popup iterations" is read as an earlier iteration, so its frames are not built. Right?'));
+  assert.ok(
+    spec.questions.includes(
+      'Section "Sketches" sits beside "Final screens". Its frames are specced as states to build: is it an earlier iteration instead?',
+    ),
+  );
+});
+
+const under = (id: string, section: string): FrameRef => ({ ...item(id, 'Page', section), sections: ['Explorations', section] });
+
+test('a Final section inside an iteration: siblings there are not asked about, and the parent question says the Final part is built', () => {
+  const snapshot: DesignSnapshot = {
+    file: { fileKey: 'Key', name: 'Checkout', version: '1', lastModified: '' },
+    root: { id: '0:1', name: 'Board', type: 'CANVAS' },
+    items: [under('f1', 'Final'), under('a1', 'Option A')],
+    skipped: [],
+    frames: { f1: page('f1', 'Basket'), a1: page('a1', 'Basket') },
+    hiddenNodes: 0,
+    comments: [],
+  };
+  const usage = collectUsage(snapshot);
+  const table = buildTable(usage, catalogue, matchComponents(usage.components, [], [], { lucide: new Set(), local: [] }));
+  const spec = buildSpec({ repo: 'web', snapshot, catalogue, table, map: [], generated: '2026-01-01' });
+  assert.deepEqual(
+    spec.screens.map((s) => [s.name, s.states[0]?.role]),
+    [
+      ['Explorations / Final / Page', 'design'],
+      ['Explorations / Option A / Page', 'superseded'],
+    ],
+  );
+  assert.ok(
+    spec.questions.includes(
+      'Section "Explorations" is read as an earlier iteration, so its frames outside the Final section inside it are not built. Right?',
+    ),
+  );
+  assert.ok(!spec.questions.some((q) => q.includes('"Option A" sits beside')), spec.questions.join('\n'));
+});
+
+test('TextMatcher.adjustments gives the classes a variant needs to show a text, and nothing for a name it lacks', () => {
+  const m = new TextMatcher(variants, tokens);
+  const v = { family: 'Lexend', sizePx: 20, weight: 700, lineHeightPx: 30, letterSpacingPx: 0 };
+  assert.deepEqual(m.adjustments(v, 'Heading level=6'), ['leading-normal']);
+  assert.deepEqual(m.adjustments({ ...v, lineHeightPx: 31, letterSpacingPx: 0.7 }, 'Heading level=6'), [
+    'leading-[31px]',
+    'tracking-[0.7px]',
+  ]);
+  assert.equal(m.adjustments(v, 'Heading level=9'), undefined);
 });

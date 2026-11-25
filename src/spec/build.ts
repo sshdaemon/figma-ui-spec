@@ -1,10 +1,10 @@
 import type { Catalogue } from '../catalogue/types.ts';
-import type { DesignSnapshot } from '../design/types.ts';
+import type { DesignNode, DesignSnapshot } from '../design/types.ts';
 import type { ComponentRow, MapEntry } from '../mapping/components.ts';
 import { ColorMatcher, ShadowMatcher, TextMatcher } from '../mapping/match.ts';
 import type { MappingTable } from '../mapping/table.ts';
 import { ConflictRegistry } from './conflicts.ts';
-import { groupFlows, type Flow } from './flows.ts';
+import { FINAL, groupFlows, iterationOf, type Flow } from './flows.ts';
 import { buildTree, type TreeContext } from './tree.ts';
 import type { SpecNode, SpecScreen, SpecState, UiSpec } from './types.ts';
 
@@ -66,7 +66,13 @@ export function buildSpec(input: SpecInput): UiSpec {
     components,
     definitions,
     conflicts: conflicts.list(),
-    questions: [...stateQuestions(flows, screens), ...componentQuestions(components), ...commentQuestions(snapshot, screens)],
+    questions: [
+      ...sectionQuestions(flows),
+      ...stateQuestions(flows, screens),
+      ...headingQuestions(flows, snapshot),
+      ...componentQuestions(components),
+      ...commentQuestions(snapshot, screens),
+    ],
     gaps: gapsOf(input.table),
   };
 }
@@ -132,6 +138,84 @@ function roleQuestions(flow: Flow, design: readonly Flow['states'][number][]): s
     }
     return [];
   });
+}
+
+/**
+ * Sections read as earlier iterations, at any depth, so the person confirms nothing real was left out, and sections
+ * beside a final one whose names do not say which they are.
+ */
+function sectionQuestions(flows: readonly Flow[]): string[] {
+  const iterations = new Set(flows.flatMap((f) => iterationOf(f.sections) ?? []));
+  const superseded = [...iterations].map((t) => {
+    const keepsFinal = flows.some((f) => f.sections.includes(t) && !iterationOf(f.sections));
+    const what = keepsFinal ? 'its frames outside the Final section inside it are' : 'its frames are';
+    return `Section "${t}" is read as an earlier iteration, so ${what} not built. Right?`;
+  });
+  const unclear = [...siblingSections(flows)].flatMap(([parent, names]) => {
+    const final = [...names].find((n) => FINAL.test(n));
+    if (!final) return [];
+    // Only sections whose frames are built: a sibling inside an iteration is already superseded.
+    return [...names]
+      .filter((n) => !FINAL.test(n) && !iterationOf([...parent, n]))
+      .map((n) => `Section "${n}" sits beside "${final}". Its frames are specced as states to build: is it an earlier iteration instead?`);
+  });
+  return [...superseded, ...new Set(unclear)];
+}
+
+/** The names of the sections under each parent section path, at every depth. */
+function siblingSections(flows: readonly Flow[]): Map<readonly string[], Set<string>> {
+  const byKey = new Map<string, { parent: readonly string[]; names: Set<string> }>();
+  for (const { sections } of flows) {
+    for (const [depth, name] of sections.entries()) {
+      const parent = sections.slice(0, depth);
+      const key = parent.join('\u0000');
+      const entry = byKey.get(key) ?? { parent, names: new Set<string>() };
+      byKey.set(key, { parent: entry.parent, names: entry.names.add(name) });
+    }
+  }
+  return new Map([...byKey.values()].map((e) => [e.parent, e.names]));
+}
+
+/** Headings this size and weight or more name a screen or a drawer, rather than a step inside it. */
+const HEADING_MIN_PX = 18;
+const HEADING_MIN_WEIGHT = 600;
+
+/**
+ * A heading some design states of a flow show and others replace with another one, often because a frame was copied
+ * from a sibling flow and kept its title. Headings every state shares (the page's own) are left out.
+ */
+function headingQuestions(flows: readonly Flow[], snapshot: DesignSnapshot): string[] {
+  const perFlow = flows.map((flow) => {
+    const states = flow.states.filter((s) => s.role === 'design' && snapshot.frames[s.frame.id]);
+    return { flow, states: states.map((s) => ({ id: s.frame.id, headings: headingsOf(snapshot.frames[s.frame.id]) })) };
+  });
+  const owners = (heading: string, except: Flow): string[] =>
+    perFlow.filter((p) => p.flow !== except && p.states.some((s) => s.headings.has(heading))).map((p) => p.flow.name);
+  return perFlow.flatMap(({ flow, states }) => {
+    const shared = new Set([...(states[0]?.headings ?? [])].filter((h) => states.every((s) => s.headings.has(h))));
+    const varying = [...new Set(states.flatMap((s) => [...s.headings]))].filter((h) => !shared.has(h));
+    if (states.length < 2 || varying.length < 2) return [];
+    const parts = varying.map((h) => {
+      const where = states.filter((s) => s.headings.has(h)).map((s) => s.id);
+      const elsewhere = owners(h, flow);
+      return `"${h}" (${where.join(', ')}${elsewhere.length > 0 ? `; also in ${elsewhere.join(', ')}` : ''})`;
+    });
+    return [`${flow.name}: its states show different headings: ${parts.join(', ')}. Which is right for each?`];
+  });
+}
+
+function headingsOf(node: DesignNode | undefined): Set<string> {
+  const out = new Set<string>();
+  const walk = (n: DesignNode): void => {
+    if (isHeading(n.text)) out.add((n.text?.characters ?? '').replace(/\s+/g, ' ').trim());
+    for (const c of n.children ?? []) walk(c);
+  };
+  if (node) walk(node);
+  return out;
+}
+
+function isHeading(t: DesignNode['text']): boolean {
+  return (t?.sizePx ?? 0) >= HEADING_MIN_PX && (t?.weight ?? 0) >= HEADING_MIN_WEIGHT;
 }
 
 function hasText(n: SpecNode): boolean {
