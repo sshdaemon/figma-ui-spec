@@ -53,6 +53,7 @@ function stateLines(state: SpecState, n: number): string[] {
   const title = `### State ${n}: ${state.label ?? state.name} (${state.frameId}, ${state.size.w}x${state.size.h})`;
   const notes = state.notes.length > 0 ? ['', 'Designer notes:', ...state.notes.map((m) => `- ${oneLine(m)}`)] : [];
   if (state.role === 'reference') return [title, '', "Reference: shows today's UI for comparison. Not built.", ...notes];
+  if (state.role === 'superseded') return [title, '', 'Earlier iteration: the final designs replace it. Not built.', ...notes];
   const tree = state.tree ? ['', '```text', ...nodeLines(state.tree, 0), '```'] : [];
   return [title, ...notes, ...tree];
 }
