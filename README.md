@@ -109,6 +109,10 @@ A test and the pre-commit hook (enabled by `npm install`) refuse to track any of
 - `components.dirs`: folders whose exported PascalCase components are candidates for Figma components; `components.iconDirs`: the project's icon components; `components.lucide`: lucide's icon module folder, when the project uses lucide.
 - `design.skip`: extra skip rules for `design`, each with a `reason` and a `name` regex, a node `type`, or both: `{ "name": "^Annotation", "reason": "annotation" }`.
 
+## With a review loop
+
+The [fresh-eyes](https://github.com/sshdaemon/workbench) review loop runs `guard` as its shared-code check, so a change to a shared component or a theme token that no spec decision allows becomes a question for the developer. Its [profile recipes](https://github.com/sshdaemon/workbench/blob/main/plugins/fresh-eyes/PROFILE.md#recipes) have the command to set it up.
+
 ## Develop
 
 ```bash
